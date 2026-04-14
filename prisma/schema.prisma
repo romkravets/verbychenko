@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  name        String
+  age         Int
+  city        String
+  height      Int?     // зріст в см
+  weight      Int?     // вага в кг
+  hairColor   String?  // колір волосся
+  education   String?  // освіта
+  housing     String?  // житло
+  about       String   // про себе
+  lookingFor  String   // кого шукаю
+  aiText      String?  // згенерований текст ведучої
+  status      AnnouncementStatus @default(PENDING)
+  audioUrl    String?  // посилання на аудіо в R2
+  letterNumber Int?    // номер листа (як в оригінальній програмі)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  queueItems  QueueItem[]
+
+  @@map("announcements")
+}
+
+model Episode {
+  id          String        @id @default(cuid())
+  scheduledAt DateTime      // коли запускається в ефір
+  status      EpisodeStatus @default(DRAFT)
+  mp3Url      String?       // фінальний зібраний файл
+  createdAt   DateTime      @default(now())
+
+  queueItems  QueueItem[]
+
+  @@map("episodes")
+}
+
+model QueueItem {
+  id             String    @id @default(cuid())
+  type           QueueType
+  audioUrl       String
+  order          Int
+  playedAt       DateTime?
+  episodeId      String
+  announcementId String?
+
+  episode      Episode       @relation(fields: [episodeId], references: [id])
+  announcement Announcement? @relation(fields: [announcementId], references: [id])
+
+  @@map("queue_items")
+}
+
+enum AnnouncementStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EpisodeStatus {
+  DRAFT
+  PUBLISHED
+  AIRED
+}
+
+enum QueueType {
+  MUSIC
+  ANNOUNCEMENT
+  EDITORIAL
+  INTRO
+  OUTRO
+}
