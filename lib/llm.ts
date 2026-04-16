@@ -13,7 +13,20 @@ const TAMARA_PROMPT = `Ти пишеш текст шлюбного оголош�
 
 МОВА: літературна українська, без суржику.
 ДОВЖИНА: 6–9 речень.
-НЕ додавай "Лист номер" — це скаже ведуча окремо.`;
+НЕ додавай "Лист номер" — це скаже ведуча окремо.
+НЕ додавай жодних вступних рядків, коментарів чи підписів — лише сам текст оголошення.`;
+
+/**
+ * Remove any leading meta-line the LLM might prepend, e.g.:
+ * "Оголошення готове до ефіру в стилі..."
+ * "Ось ваше оголошення:"
+ * "**Оголошення:**"
+ */
+function cleanLLMOutput(text: string): string {
+  return text
+    .replace(/^[\s\S]*?(?=(?:Де ти|Відгукніть|Мужній|Шукаю|[А-ЯІЇЄҐ]))/u, "")
+    .trim();
+}
 
 function formatUserInput(data: {
   name: string;
@@ -45,19 +58,21 @@ function formatUserInput(data: {
 
 type AnnouncementInput = Parameters<typeof formatUserInput>[0];
 
-export async function generateAnnouncement(userData: AnnouncementInput): Promise<string> {
+export async function generateAnnouncement(
+  userData: AnnouncementInput,
+): Promise<string> {
   const provider = process.env.AI_PROVIDER ?? "groq";
 
   if (provider === "claude") {
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const msg = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 400,
       system: TAMARA_PROMPT,
       messages: [{ role: "user", content: formatUserInput(userData) }],
     });
-    return (msg.content[0] as { text: string }).text;
+    return cleanLLMOutput((msg.content[0] as { text: string }).text);
   }
 
   // default: groq
@@ -71,5 +86,5 @@ export async function generateAnnouncement(userData: AnnouncementInput): Promise
       { role: "user", content: formatUserInput(userData) },
     ],
   });
-  return res.choices[0].message.content ?? "";
+  return cleanLLMOutput(res.choices[0].message.content ?? "");
 }
