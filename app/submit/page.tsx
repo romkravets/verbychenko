@@ -200,7 +200,9 @@ export default function SubmitPage() {
             </button>
           </div>
           {sendError && (
-            <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg mt-2">{sendError}</p>
+            <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg mt-2">
+              {sendError}
+            </p>
           )}
         </div>
       </div>

@@ -5,7 +5,7 @@ import { uploadAudio } from "@/lib/storage";
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -23,7 +23,11 @@ export async function POST(
     letterNumber = await db.announcement.count();
   }
 
-  const fullText = wrapWithHostIntro(announcement.aiText, letterNumber, announcement.city);
+  const fullText = wrapWithHostIntro(
+    announcement.aiText,
+    letterNumber,
+    announcement.city,
+  );
 
   try {
     // Generate TTS audio
