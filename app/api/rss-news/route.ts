@@ -1,3 +1,4 @@
+import { parseXmlTitles } from "@/lib/rss-parser";
 import { NextResponse } from "next/server";
 
 const RSS_FEEDS = [
@@ -6,31 +7,20 @@ const RSS_FEEDS = [
   "https://suspilne.media/rss/all.xml",
 ];
 
-// Cache headline for 10 min so we don't spam RSS on every song
-let cache: { headline: string; fetchedAt: number } | null = null;
+// Cache up to 5 headlines for 10 min so we don't spam RSS every song.
+// Two consecutive news calls within the same cache window return DIFFERENT items.
+let cache: {
+  headlines: string[];
+  fetchedAt: number;
+  nextIndex: number;
+} | null = null;
 const CACHE_TTL = 10 * 60 * 1000;
+const MAX_HEADLINES = 5;
 
-function parseXmlTitle(xml: string): string | null {
-  // Grab first <item><title> that isn't the channel title
-  const items = xml.match(/<item[^>]*>[\s\S]*?<\/item>/gi) ?? [];
-  for (const item of items) {
-    const m = item.match(
-      /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i,
-    );
-    if (m && m[1]) {
-      return m[1]
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-        .replace(/&#\d+;/g, "")
-        .trim();
-    }
-  }
-  return null;
-}
-
-async function fetchHeadline(): Promise<string | null> {
+async function fetchHeadlines(): Promise<string[]> {
+  const results: string[] = [];
   for (const url of RSS_FEEDS) {
+    if (results.length >= MAX_HEADLINES) break;
     try {
       const res = await fetch(url, {
         signal: AbortSignal.timeout(4000),
@@ -38,26 +28,41 @@ async function fetchHeadline(): Promise<string | null> {
       });
       if (!res.ok) continue;
       const xml = await res.text();
-      const title = parseXmlTitle(xml);
-      if (title && title.length > 10) return title;
+      const titles = parseXmlTitles(xml, MAX_HEADLINES - results.length);
+      results.push(...titles);
     } catch {
-      /* try next */
+      /* try next feed */
     }
   }
-  return null;
+  return results;
 }
 
-export async function GET() {
-  // Return cached if fresh
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL) {
-    return NextResponse.json({ headline: cache.headline });
+/**
+ * GET /api/rss-news
+ *
+ * Returns the next headline from the cache (rotates through up to 5).
+ * Refreshes the cache every 10 min.
+ *
+ * ?all=1 returns the full array (used during news segments to read 2 items).
+ */
+export async function GET(req: Request) {
+  const wantAll = new URL(req.url).searchParams.get("all") === "1";
+
+  // Refresh cache if stale or empty
+  if (!cache || Date.now() - cache.fetchedAt >= CACHE_TTL) {
+    const headlines = await fetchHeadlines();
+    if (headlines.length === 0) {
+      return NextResponse.json({ error: "no news" }, { status: 503 });
+    }
+    cache = { headlines, fetchedAt: Date.now(), nextIndex: 0 };
   }
 
-  const headline = await fetchHeadline();
-  if (!headline) {
-    return NextResponse.json({ error: "no news" }, { status: 503 });
+  if (wantAll) {
+    return NextResponse.json({ headlines: cache.headlines });
   }
 
-  cache = { headline, fetchedAt: Date.now() };
+  // Return the next headline and advance the rotation index
+  const headline = cache.headlines[cache.nextIndex % cache.headlines.length];
+  cache.nextIndex = (cache.nextIndex + 1) % cache.headlines.length;
   return NextResponse.json({ headline });
 }

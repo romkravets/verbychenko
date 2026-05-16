@@ -2,18 +2,32 @@
 // ⚠️  Музика Росії та Білорусі ВИКЛЮЧЕНА — ці країни є державами-агресорами,
 //     що розв'язали збройну агресію проти України.
 //
-// ─── ЯК ВЗЯТИ ПЛЕЙЛІСТ З YOUTUBE MUSIC ─────────────────────────────
-// 1. Відкрий music.youtube.com або youtube.com
-// 2. Знайди потрібний плейліст/мікс
-// 3. Скопіюй ID з URL після "list=":
-//      https://music.youtube.com/playlist?list=PL4fGSI1pDJn6O1LS0XSdF3Q3mCgNpP--f
-//                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-// 4. Встав у поле playlistId каналу нижче
+// ─── ЯК НАЛАШТУВАТИ КАНАЛИ ЧЕРЕЗ .env ──────────────────────────────
+// Змінні NEXT_PUBLIC_RADIO_* читаються на клієнті та сервері.
+// Можна вказати кілька плейлістів через кому — кожного разу буде обиратись випадковий:
 //
-// ─── ЯК ДОДАТИ ОКРЕМІ ВІДЕО (якщо немає плейліста) ─────────────────
-// Скопіюй посилання: https://www.youtube.com/watch?v=K5KAc5CoCuk
-// ID — частина після "v=": K5KAc5CoCuk
-// Додай у масив videoIds (якщо playlistId не задано)
+//   NEXT_PUBLIC_RADIO_UA_FOLK_PLAYLISTS=PLabc123,PLdef456
+//   NEXT_PUBLIC_RADIO_UA_ESTRADA_PLAYLISTS=PLxxx
+//   NEXT_PUBLIC_RADIO_UA_KANAL_VIDEOS=videoId1,videoId2
+//   NEXT_PUBLIC_RADIO_WORLD_MIX_PLAYLISTS=RDCLAKxxx,RDCLAKyyy
+//   NEXT_PUBLIC_RADIO_WORLD_JAZZ_PLAYLISTS=RDCLAKzzz
+//
+// ─── ЯК ЗНАЙТИ ID ПЛЕЙЛІСТА ─────────────────────────────────────────
+// YouTube Music: music.youtube.com → відкрий плейліст → скопіюй list= з URL
+// YouTube:       youtube.com/playlist?list=PL...
+//
+// ─── ЯК ДОДАТИ ОКРЕМІ ВІДЕО (без плейліста) ─────────────────────────
+// В URL https://www.youtube.com/watch?v=K5KAc5CoCuk ID — це K5KAc5CoCuk
+// Вкажи кілька через кому в NEXT_PUBLIC_RADIO_*_VIDEOS
+
+/** Split a comma-separated env value into a trimmed, non-empty array. */
+function envList(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export interface Channel {
   id: string;
@@ -21,24 +35,29 @@ export interface Channel {
   emoji: string;
   description: string;
   country: "ua" | "world";
-  // Якщо задано playlistId — програвач використовує весь плейліст (YouTube / YT Music)
-  // YouTube Music playlist IDs: відкрий music.youtube.com, скопіюй list= з URL
-  playlistId?: string;
-  videoIds: string[]; // fallback якщо playlistId не задано
+  /**
+   * One or more YouTube / YT Music playlist IDs.
+   * If multiple are provided (from env, comma-separated), a random one is
+   * picked per session to give variety to repeat listeners.
+   */
+  playlistIds: string[];
+  /** Fallback video IDs used when playlistIds is empty. */
+  videoIds: string[];
 }
 
+// NOTE: process.env.NEXT_PUBLIC_* must be accessed with STATIC dot notation here.
+// Next.js replaces these at build time — bracket notation (process.env[key])
+// produces undefined in the browser bundle.
 export const CHANNELS: Channel[] = [
-  // ─── Українська музика ─────────────────────────────────────────
+  // ─── Українська музика ──────────────────────────────────────────
   {
     id: "ua-folk",
     name: "Народна",
     emoji: "🌻",
     description: "Українські народні пісні",
     country: "ua",
-    // Плейліст "Українські народні пісні" від UА Music на YouTube Music
-    // Щоб замінити: music.youtube.com → знайди плейліст → скопіюй list= з URL
-    playlistId: "PLwMUOElpNABo8GEA1CkVnmRBGafNv_AZG",
-    videoIds: ["K5KAc5CoCuk"], // fallback
+    playlistIds: envList(process.env.NEXT_PUBLIC_RADIO_UA_FOLK_PLAYLISTS),
+    videoIds: ["K5KAc5CoCuk"],
   },
   {
     id: "ua-estrada",
@@ -46,9 +65,8 @@ export const CHANNELS: Channel[] = [
     emoji: "🎤",
     description: "Українська естрада",
     country: "ua",
-    // Плейліст "Українська популярна музика"
-    playlistId: "PLwMUOElpNABoFXnPJwJKvP8EbNkGMmgTc",
-    videoIds: ["K5KAc5CoCuk"], // fallback
+    playlistIds: envList(process.env.NEXT_PUBLIC_RADIO_UA_ESTRADA_PLAYLISTS),
+    videoIds: ["K5KAc5CoCuk"],
   },
   {
     id: "ua-kanal",
@@ -56,19 +74,20 @@ export const CHANNELS: Channel[] = [
     emoji: "📺",
     description: "Канал @kanal.UAmusic — українська музика",
     country: "ua",
-    // Окремі відео з каналу @kanal.UAmusic (вже перевірені)
-    videoIds: ["091V1n0yXMI", "PaYWeaI9Jac", "UO_Fov7-uXM", "Z3MAZre--94"],
+    // Supports both a playlist (NEXT_PUBLIC_RADIO_UA_KANAL_PLAYLISTS) and
+    // individual video IDs (NEXT_PUBLIC_RADIO_UA_KANAL_VIDEOS)
+    playlistIds: envList(process.env.NEXT_PUBLIC_RADIO_UA_KANAL_PLAYLISTS),
+    videoIds: envList(process.env.NEXT_PUBLIC_RADIO_UA_KANAL_VIDEOS),
   },
-  // ─── Зарубіжна музика (без Росії та Білорусі) ──────────────────
+  // ─── Зарубіжна музика (без Росії та Білорусі) ───────────────────
   {
     id: "world-mix",
     name: "Світовий мікс",
     emoji: "🌍",
     description: "Зарубіжний мікс (без Росії та Білорусі)",
     country: "world",
-    // YouTube Music офіційний плейліст "Pop Music"
-    playlistId: "RDCLAK5uy_kmPRjHDMwr47bK339X5CKqmPm2KRHFx1Q",
-    videoIds: ["K5KAc5CoCuk"], // fallback
+    playlistIds: envList(process.env.NEXT_PUBLIC_RADIO_WORLD_MIX_PLAYLISTS),
+    videoIds: ["K5KAc5CoCuk"],
   },
   {
     id: "world-jazz",
@@ -76,25 +95,32 @@ export const CHANNELS: Channel[] = [
     emoji: "🎷",
     description: "Джаз і лаунж",
     country: "world",
-    // YouTube Music офіційний плейліст "Jazz & Blues"
-    playlistId: "RDCLAK5uy_lT1gE57t4_gG3BFM8G8eiGXQl-pE5S578",
-    videoIds: ["K5KAc5CoCuk"], // fallback
+    playlistIds: envList(process.env.NEXT_PUBLIC_RADIO_WORLD_JAZZ_PLAYLISTS),
+    videoIds: ["K5KAc5CoCuk"],
   },
 ];
 
-// Returns the playlistId if defined, or comma-separated video IDs as fallback.
-export function channelPlaylistId(channel: Channel): string | null {
-  return channel.playlistId ?? null;
+/**
+ * Pick a random playlist ID from the channel's pool.
+ * Returns null if the channel has no playlists (falls back to videoIds).
+ * Randomisation happens once per component mount — each page load may get
+ * a different playlist, providing variety for repeat listeners.
+ */
+export function channelPickPlaylist(channel: Channel): string | null {
+  if (!channel.playlistIds.length) return null;
+  return channel.playlistIds[
+    Math.floor(Math.random() * channel.playlistIds.length)
+  ];
 }
 
-// Returns a comma-separated list of all video IDs for a channel (fallback mode).
+/** Returns a comma-separated list of video IDs for fallback mode. */
 export function channelPlaylist(channel: Channel): string {
   return channel.videoIds.join(",");
 }
 
-// First video ID — used in fallback mode
+/** First video ID — used as the videoId param in fallback mode. */
 export function channelFirstVideo(channel: Channel): string {
-  return channel.videoIds[0];
+  return channel.videoIds[0] ?? "";
 }
 
 // Phrases the announcer (Тамара) says between songs

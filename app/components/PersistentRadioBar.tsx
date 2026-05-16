@@ -2,6 +2,14 @@
 
 import { useRadio } from "@/app/context/RadioContext";
 import { CHANNELS, randomPhrase } from "@/lib/channels";
+import {
+  buildInitialPlayedSet,
+  DISPLAY_SLOTS,
+  getCurrentDisplayKey,
+  getDueSegment,
+  slotTime,
+  type SegmentKey,
+} from "@/lib/schedule";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,23 +28,25 @@ type FeaturedAnnouncement = {
   contactPhone: string | null;
 };
 
-// ─── Radio Scheduler ────────────────────────────────────────────────────────
-// Sequence: [music x2-3] → [Tamara insert] → [music x2-3] → [news TTS] →
-//           [music x2-3] → [announcement if any] → repeat
-
-const SONGS_BEFORE_INSERT = 2; // play this many songs before insert
-
 export default function PersistentRadioBar() {
   const radio = useRadio();
-  const [tracksPlayed, setTracksPlayed] = useState(0);
-  const [isBusy, setIsBusy] = useState(false); // TTS playing
-  const [newsInsertDue, setNewsInsertDue] = useState(false);
-  const [announcementDue, setAnnouncementDue] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
   const [splash, setSplash] = useState<FeaturedAnnouncement | null>(null);
-  const splashShownRef = useRef(false); // only show once per session
-  const newsCountRef = useRef(0); // how many news inserts happened this session
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [pendingSegment, setPendingSegment] = useState<SegmentKey | null>(null);
+  const [nowMinute, setNowMinute] = useState(() => new Date().getMinutes());
+  const [trackTime, setTrackTime] = useState<{
+    cur: number;
+    dur: number;
+  } | null>(null);
+  const [wavePhase, setWavePhase] = useState(0);
+
+  const splashShownRef = useRef(false);
   const busyRef = useRef(false);
   const activeRef = useRef(false);
+  const tracksRef = useRef(0); // songs played this session
+  const lastHourRef = useRef(-1); // last hour we reset the played-segments set
+  const playedRef = useRef<Set<SegmentKey>>(new Set());
 
   useEffect(() => {
     activeRef.current = radio.playing;
@@ -45,120 +55,65 @@ export default function PersistentRadioBar() {
     busyRef.current = isBusy;
   }, [isBusy]);
 
-  // ── Fetch news headline via TTS ──────────────────────────────────────────
+  // Update clock every 30 s (for schedule panel highlights)
+  useEffect(() => {
+    const id = setInterval(() => setNowMinute(new Date().getMinutes()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Animate waveform — advances phase every 120 ms
+  useEffect(() => {
+    if (!radio.playing) return;
+    const id = setInterval(() => setWavePhase((p) => p + 1), 120);
+    return () => clearInterval(id);
+  }, [radio.playing]);
+
+  // ── TTS helper ────────────────────────────────────────────────────────────
+  const playTTS = useCallback(async (text: string) => {
+    const tts = await fetch("/api/tts-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!tts.ok) return;
+    const blob = await tts.blob();
+    const url = URL.createObjectURL(blob);
+    await new Promise<void>((resolve) => {
+      const a = new Audio(url);
+      a.onended = () => {
+        URL.revokeObjectURL(url);
+        resolve();
+      };
+      a.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve();
+      };
+      a.play().catch(() => resolve());
+    });
+  }, []);
+
+  // ── 📰 News segment ───────────────────────────────────────────────────────
   const playNewsInsert = useCallback(async () => {
     if (!activeRef.current || busyRef.current) return;
     setIsBusy(true);
     busyRef.current = true;
-    radio.setYtVolume(7);
+    radio.setYtVolume(0);
     radio.setPhase("news");
-
     try {
-      const res = await fetch("/api/rss-news");
+      // Fetch all cached headlines (up to 5), read 2 different ones
+      const res = await fetch("/api/rss-news?all=1");
       if (!res.ok) throw new Error("no news");
-      const data = (await res.json()) as { headline: string };
-      radio.setLabel(`📰 ${data.headline}`);
+      const { headlines } = (await res.json()) as { headlines: string[] };
+      if (!headlines?.length) throw new Error("empty");
 
-      const tts = await fetch("/api/tts-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `Увага — новини! ${data.headline}` }),
-      });
-      if (tts.ok) {
-        const blob = await tts.blob();
-        const url = URL.createObjectURL(blob);
-        await new Promise<void>((resolve) => {
-          const a = new Audio(url);
-          a.onended = () => {
-            URL.revokeObjectURL(url);
-            resolve();
-          };
-          a.onerror = () => {
-            URL.revokeObjectURL(url);
-            resolve();
-          };
-          a.play().catch(() => resolve());
-        });
-      }
-      newsCountRef.current++;
-    } catch {
-      // no news — skip silently
-    } finally {
-      radio.setYtVolume(radio.volume);
-      radio.setPhase("music");
-      radio.setLabel("🎵 Музичний ефір");
-      setIsBusy(false);
-      busyRef.current = false;
-    }
-  }, [radio]);
+      radio.setLabel(`📰 ${headlines[0]}`);
+      await playTTS(
+        `Шановні слухачі, у мікрофона Тамара. Слухайте новини. ${headlines[0]}`,
+      );
 
-  // ── Fetch & play next announcement from queue ────────────────────────────
-  const playAnnouncementInsert = useCallback(async () => {
-    if (!activeRef.current || busyRef.current) return;
-    setIsBusy(true);
-    busyRef.current = true;
-    radio.setYtVolume(7);
-    radio.setPhase("announcement");
-
-    try {
-      const res = await fetch("/api/queue?episodeId=live");
-      const data = (await res.json()) as {
-        audioUrl?: string;
-        done?: boolean;
-        text?: string;
-      };
-
-      if (!data.done && data.audioUrl) {
-        radio.setLabel("📻 В ефірі оголошення від слухача...");
-        await new Promise<void>((resolve) => {
-          const a = new Audio(data.audioUrl!);
-          a.onended = () => resolve();
-          a.onerror = () => resolve();
-          a.play().catch(() => resolve());
-        });
-      }
-    } catch {
-      // no announcements — skip
-    } finally {
-      radio.setYtVolume(radio.volume);
-      radio.setPhase("music");
-      radio.setLabel("🎵 Музичний ефір");
-      setIsBusy(false);
-      busyRef.current = false;
-    }
-  }, [radio]);
-
-  // ── Tamara between-song insert ───────────────────────────────────────────
-  const playTamaraInsert = useCallback(async () => {
-    if (!activeRef.current || busyRef.current) return;
-    setIsBusy(true);
-    busyRef.current = true;
-    radio.setYtVolume(7);
-    radio.setPhase("insert");
-
-    try {
-      const phrase = randomPhrase();
-      radio.setLabel(`🎙️ ${phrase}`);
-      const tts = await fetch("/api/tts-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: phrase }),
-      });
-      if (tts.ok) {
-        const blob = await tts.blob();
-        const url = URL.createObjectURL(blob);
-        await new Promise<void>((resolve) => {
-          const a = new Audio(url);
-          a.onended = () => {
-            URL.revokeObjectURL(url);
-            resolve();
-          };
-          a.onerror = () => {
-            URL.revokeObjectURL(url);
-            resolve();
-          };
-          a.play().catch(() => resolve());
-        });
+      if (activeRef.current && headlines.length > 1) {
+        radio.setLabel(`📰 ${headlines[1]}`);
+        await playTTS(headlines[1]);
       }
     } catch {
       /* skip */
@@ -169,54 +124,209 @@ export default function PersistentRadioBar() {
       setIsBusy(false);
       busyRef.current = false;
     }
-  }, [radio]);
+  }, [radio, playTTS]);
 
-  // ── onTrackChange — called every time YouTube switches song ──────────────
+  // ── 💌 Програма знайомств ─────────────────────────────────────────────────
+  const playDatingProgram = useCallback(async () => {
+    if (!activeRef.current || busyRef.current) return;
+    setIsBusy(true);
+    busyRef.current = true;
+    radio.setYtVolume(0);
+    radio.setPhase("announcement");
+    try {
+      // Check if there are any announcements before doing intro
+      const first = await fetch("/api/announce/featured?type=DATING");
+      if (!first.ok) return;
+      const { announcement: ann1 } = (await first.json()) as {
+        announcement: { id: string; aiText: string; city: string } | null;
+      };
+      if (!ann1?.aiText) return; // nothing to read — skip silently
+
+      radio.setLabel("💌 Програма знайомств");
+      await playTTS(
+        "А зараз — програма знайомств Радіо Вербиченько! Слухайте листи наших слухачів.",
+      );
+
+      radio.setLabel(`💌 Лист із міста ${ann1.city}`);
+      await playTTS(ann1.aiText);
+
+      // Try to get a second (guaranteed different) announcement via ?exclude=
+      if (activeRef.current) {
+        const second = await fetch(
+          `/api/announce/featured?type=DATING&exclude=${ann1.id}`,
+        );
+        if (second.ok) {
+          const { announcement: ann2 } = (await second.json()) as {
+            announcement: { id: string; aiText: string; city: string } | null;
+          };
+          if (ann2?.aiText) {
+            await playTTS("Ще один лист до нашої програми.");
+            radio.setLabel(`💌 Лист із міста ${ann2.city}`);
+            await playTTS(ann2.aiText);
+          }
+        }
+      }
+
+      await playTTS(
+        "Надсилайте свої листи на сайті Радіо Вербиченько. І пам'ятайте — кохання поруч!",
+      );
+    } catch {
+      /* skip */
+    } finally {
+      radio.setYtVolume(radio.volume);
+      radio.setPhase("music");
+      radio.setLabel("🎵 Музичний ефір");
+      setIsBusy(false);
+      busyRef.current = false;
+    }
+  }, [radio, playTTS]);
+
+  // ── 🛒 Комерційні оголошення ──────────────────────────────────────────────
+  const playCommercialProgram = useCallback(async () => {
+    if (!activeRef.current || busyRef.current) return;
+    setIsBusy(true);
+    busyRef.current = true;
+    radio.setYtVolume(0);
+    radio.setPhase("announcement");
+    try {
+      const first = await fetch("/api/announce/featured?type=COMMERCIAL");
+      if (!first.ok) return;
+      const { announcement: ann1 } = (await first.json()) as {
+        announcement: {
+          id: string;
+          aiText: string;
+          itemTitle: string | null;
+        } | null;
+      };
+      if (!ann1?.aiText) return;
+
+      radio.setLabel("🛒 Комерційні оголошення");
+      await playTTS("І кілька оголошень від наших слухачів. Слухайте уважно!");
+
+      radio.setLabel(`🛒 ${ann1.itemTitle ?? "Оголошення"}`);
+      await playTTS(ann1.aiText);
+
+      if (activeRef.current) {
+        const second = await fetch(
+          `/api/announce/featured?type=COMMERCIAL&exclude=${ann1.id}`,
+        );
+        if (second.ok) {
+          const { announcement: ann2 } = (await second.json()) as {
+            announcement: {
+              id: string;
+              aiText: string;
+              itemTitle: string | null;
+            } | null;
+          };
+          if (ann2?.aiText) {
+            radio.setLabel(`🛒 ${ann2.itemTitle ?? "Оголошення"}`);
+            await playTTS(ann2.aiText);
+          }
+        }
+      }
+
+      await playTTS("Подавайте свої оголошення на сайті Радіо Вербиченько.");
+    } catch {
+      /* skip */
+    } finally {
+      radio.setYtVolume(radio.volume);
+      radio.setPhase("music");
+      radio.setLabel("🎵 Музичний ефір");
+      setIsBusy(false);
+      busyRef.current = false;
+    }
+  }, [radio, playTTS]);
+
+  // ── 🎙️ Тамара між піснями ─────────────────────────────────────────────────
+  const playTamaraInsert = useCallback(async () => {
+    if (!activeRef.current || busyRef.current) return;
+    setIsBusy(true);
+    busyRef.current = true;
+    radio.setYtVolume(0);
+    radio.setPhase("insert");
+    try {
+      const phrase = randomPhrase();
+      radio.setLabel(`🎙️ ${phrase}`);
+      await playTTS(phrase);
+    } catch {
+      /* skip */
+    } finally {
+      radio.setYtVolume(radio.volume);
+      radio.setPhase("music");
+      radio.setLabel("🎵 Музичний ефір");
+      setIsBusy(false);
+      busyRef.current = false;
+    }
+  }, [radio, playTTS]);
+
+  // ── Process pending segment (after state flush) ───────────────────────────
+  useEffect(() => {
+    if (!pendingSegment || busyRef.current) return;
+    const seg = pendingSegment;
+    setPendingSegment(null);
+    if (seg === "news-0" || seg === "news-30") playNewsInsert();
+    else if (seg === "dating") playDatingProgram();
+    else if (seg === "commercial") playCommercialProgram();
+  }, [
+    pendingSegment,
+    playNewsInsert,
+    playDatingProgram,
+    playCommercialProgram,
+  ]);
+
+  // ── onTrackChange — runs after every song ─────────────────────────────────
   const handleTrackChange = useCallback(async () => {
     if (!activeRef.current || busyRef.current) return;
 
-    const next = tracksPlayed + 1;
-    setTracksPlayed(next);
+    const n = tracksRef.current + 1;
+    tracksRef.current = n;
 
-    // After the FIRST song: show the big splash (only once per session, desktop only)
-    if (next === 1 && !splashShownRef.current && window.innerWidth >= 768) {
-      splashShownRef.current = true;
-      try {
-        const res = await fetch("/api/announce/featured");
-        if (res.ok) {
-          const data = (await res.json()) as {
-            announcement: FeaturedAnnouncement | null;
-          };
-          if (data.announcement) setSplash(data.announcement);
+    // After FIRST song: show splash + initialize schedule
+    if (n === 1) {
+      // Splash
+      if (!splashShownRef.current && window.innerWidth >= 768) {
+        splashShownRef.current = true;
+        try {
+          const res = await fetch("/api/announce/featured");
+          if (res.ok) {
+            const { announcement } = (await res.json()) as {
+              announcement: FeaturedAnnouncement | null;
+            };
+            if (announcement) setSplash(announcement);
+          }
+        } catch {
+          /* skip */
         }
-      } catch {
-        /* no announcements — skip silently */
       }
+
+      // Initialize: mark segments that are already >8 min past as done
+      // so we don't replay old segments when the user joins mid-hour
+      const now = new Date();
+      lastHourRef.current = now.getHours();
+      playedRef.current = buildInitialPlayedSet(now.getMinutes());
     }
 
-    if (next % (SONGS_BEFORE_INSERT * 3) === 0) {
-      setAnnouncementDue(true);
-    } else if (next % (SONGS_BEFORE_INSERT * 2) === 0) {
-      setNewsInsertDue(true);
-    } else if (next % SONGS_BEFORE_INSERT === 0) {
+    // Hour boundary → reset played set
+    const now = new Date();
+    const h = now.getHours();
+    if (h !== lastHourRef.current) {
+      lastHourRef.current = h;
+      playedRef.current = new Set();
+    }
+
+    // Check if a scheduled segment is due
+    const due = getDueSegment(now.getMinutes(), playedRef.current);
+    if (due) {
+      playedRef.current.add(due);
+      setPendingSegment(due);
+      return;
+    }
+
+    // No segment due → Tamara phrase every 2 songs
+    if (n % 2 === 0) {
       await playTamaraInsert();
     }
-  }, [tracksPlayed, playTamaraInsert]);
-
-  // Process pending inserts after state updates
-  useEffect(() => {
-    if (newsInsertDue && !busyRef.current) {
-      setNewsInsertDue(false);
-      playNewsInsert();
-    }
-  }, [newsInsertDue, playNewsInsert]);
-
-  useEffect(() => {
-    if (announcementDue && !busyRef.current) {
-      setAnnouncementDue(false);
-      playAnnouncementInsert();
-    }
-  }, [announcementDue, playAnnouncementInsert]);
+  }, [playTamaraInsert]);
 
   // Expose callbacks via context refs
   useEffect(() => {
@@ -231,7 +341,7 @@ export default function PersistentRadioBar() {
     };
   }, [radio]);
 
-  // ── Phase label ──────────────────────────────────────────────────────────
+  // ── UI helpers ────────────────────────────────────────────────────────────
   const phaseColor = {
     idle: "⚫",
     starting: "🟡",
@@ -242,6 +352,17 @@ export default function PersistentRadioBar() {
   }[radio.phase];
 
   const isLive = radio.phase !== "idle";
+  const curDisplayKey = getCurrentDisplayKey(nowMinute);
+
+  function fmt(sec: number) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  function slotTimeNow(minute: number) {
+    return slotTime(new Date().getHours(), minute);
+  }
 
   return (
     <>
@@ -253,20 +374,98 @@ export default function PersistentRadioBar() {
         />
       )}
 
-      {/* Hidden YouTube player — always mounted */}
-      {radio.playing && (
-        <YouTubeRadio
-          key={radio.channelId}
-          playing={radio.ytPlaying}
-          volume={radio.ytVolume}
-          channelId={radio.channelId}
-          onReady={() => radio.onReady.current?.()}
-          onTrackChange={() => radio.onTrackChange.current?.()}
-        />
+      {/* Hidden YouTube player — always mounted so position is preserved on stop/play */}
+      <YouTubeRadio
+        key={radio.channelId}
+        playing={radio.ytPlaying && radio.playing}
+        volume={radio.ytVolume}
+        channelId={radio.channelId}
+        onReady={() => radio.onReady.current?.()}
+        onTrackChange={() => {
+          setTrackTime(null);
+          radio.onTrackChange.current?.();
+        }}
+        onTimeUpdate={(cur, dur) => setTrackTime({ cur, dur })}
+      />
+
+      {/* Schedule panel — appears above the bar */}
+      {scheduleOpen && (
+        <div className="fixed bottom-[52px] left-0 right-0 z-50 bg-amber-950 border-t border-amber-800 shadow-2xl">
+          <div className="max-w-4xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-amber-300 text-xs font-mono font-bold tracking-widest uppercase">
+                📅 Розклад ефіру (щогодини)
+              </span>
+              <button
+                onClick={() => setScheduleOpen(false)}
+                className="text-amber-600 hover:text-amber-300 text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {DISPLAY_SLOTS.map((slot) => {
+                const isActive = slot.key === curDisplayKey;
+                return (
+                  <div
+                    key={slot.key}
+                    className={`rounded px-2 py-1.5 border text-xs font-mono transition ${
+                      isActive
+                        ? "bg-amber-700 border-amber-500 text-amber-100"
+                        : "bg-amber-900 border-amber-800 text-amber-400"
+                    }`}
+                  >
+                    <div className="text-amber-500 text-[10px]">
+                      {slotTimeNow(slot.minute)}
+                    </div>
+                    <div className="font-semibold">
+                      {slot.emoji} {slot.label}
+                    </div>
+                    {isActive && (
+                      <div className="text-[10px] text-amber-400 animate-pulse mt-0.5">
+                        ● зараз в ефірі
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-amber-700 text-[10px] mt-2 font-mono">
+              Сегменти запускаються між піснями. Часи повторюються щогодини.
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Sticky mini-bar */}
+      {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-amber-950 border-t-2 border-amber-700 shadow-2xl">
+        {/* Timeline — shown only when playing music and duration is known */}
+        {radio.playing &&
+          trackTime &&
+          trackTime.dur > 0 &&
+          radio.phase === "music" && (
+            <div className="px-3 pt-1.5 pb-0">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-600 text-[10px] font-mono w-8 text-right flex-shrink-0">
+                  {fmt(trackTime.cur)}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={trackTime.dur}
+                  value={trackTime.cur}
+                  onChange={() => {
+                    /* read-only — YouTube IFrame seek is unreliable */
+                  }}
+                  className="flex-1 h-0.5 accent-amber-400 cursor-default"
+                  style={{ pointerEvents: "none" }}
+                />
+                <span className="text-amber-600 text-[10px] font-mono w-8 flex-shrink-0">
+                  {fmt(trackTime.dur)}
+                </span>
+              </div>
+            </div>
+          )}
         <div className="max-w-4xl mx-auto px-3 py-2 flex items-center gap-3">
           {/* Play/Stop */}
           <button
@@ -289,18 +488,25 @@ export default function PersistentRadioBar() {
               </span>
             </div>
             {isLive && (
-              <div className="flex items-center gap-0.5 mt-0.5 overflow-hidden h-2">
-                {Array.from({ length: 30 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-0.5 bg-amber-500 rounded-full flex-shrink-0"
-                    style={{
-                      height: isBusy ? `${4 + Math.sin(i * 0.9) * 4}px` : "2px",
-                      opacity: 0.5 + (i % 3) * 0.2,
-                      transition: "height 0.3s",
-                    }}
-                  />
-                ))}
+              <div className="flex items-center gap-0.5 mt-0.5 overflow-hidden h-3">
+                {Array.from({ length: 20 }).map((_, i) => {
+                  const speed = 0.35 + (i % 5) * 0.07;
+                  const offset = i * 0.42;
+                  const amp = isBusy
+                    ? 3 + Math.abs(Math.sin(wavePhase * speed + offset)) * 7
+                    : 1;
+                  return (
+                    <div
+                      key={i}
+                      className="w-0.5 bg-amber-500 rounded-full flex-shrink-0"
+                      style={{
+                        height: `${amp}px`,
+                        opacity: 0.5 + (i % 4) * 0.12,
+                        transition: "height 0.12s ease-in-out",
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -332,6 +538,19 @@ export default function PersistentRadioBar() {
               </option>
             ))}
           </select>
+
+          {/* Schedule toggle */}
+          <button
+            onClick={() => setScheduleOpen((v) => !v)}
+            className={`text-sm flex-shrink-0 transition ${
+              scheduleOpen
+                ? "text-amber-300"
+                : "text-amber-600 hover:text-amber-400"
+            }`}
+            title="Розклад ефіру"
+          >
+            📅
+          </button>
 
           {/* Submit link */}
           <Link

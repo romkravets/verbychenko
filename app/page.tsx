@@ -4,27 +4,6 @@ import NowPlayingBadge from "./components/NowPlayingBadge";
 export default function Home() {
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-amber-900 text-amber-100 py-4 px-6 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl">📻</span>
-          <div>
-            <h1 className="text-xl font-bold leading-tight">
-              Радіо Вербиченко
-            </h1>
-            <p className="text-xs text-amber-400 tracking-widest uppercase">
-              Програма знайомств
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/submit"
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 rounded-lg text-sm font-semibold transition"
-        >
-          Подати оголошення
-        </Link>
-      </header>
-
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-16 gap-12">
         <div className="text-center max-w-lg">

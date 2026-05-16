@@ -2,8 +2,8 @@
 
 import {
   channelFirstVideo,
+  channelPickPlaylist,
   channelPlaylist,
-  channelPlaylistId,
   CHANNELS,
 } from "@/lib/channels";
 import { useCallback, useEffect, useRef } from "react";
@@ -24,8 +24,15 @@ interface YoutubePlayer {
   playVideo: () => void;
   pauseVideo: () => void;
   nextVideo: () => void;
+  playVideoAt: (index: number) => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  getPlaylistIndex: () => number;
   destroy: () => void;
 }
+
+const posKey = (channelId: string) => `yt_pos_${channelId}`;
 
 interface Props {
   playing: boolean;
@@ -33,6 +40,8 @@ interface Props {
   channelId?: string;
   onReady?: () => void;
   onTrackChange?: () => void;
+  /** Called every second while playing: (currentSec, durationSec) */
+  onTimeUpdate?: (current: number, duration: number) => void;
 }
 
 export default function YouTubeRadio({
@@ -41,11 +50,19 @@ export default function YouTubeRadio({
   channelId,
   onReady,
   onTrackChange,
+  onTimeUpdate,
 }: Props) {
   const playerRef = useRef<YoutubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
   const isFirstPlayRef = useRef(true);
+  const pendingSeekRef = useRef<number | null>(null);
+  const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
 
   const playingRef = useRef(playing);
   const volumeRef = useRef(volume);
@@ -96,7 +113,7 @@ export default function YouTubeRadio({
     const ch =
       CHANNELS.find((c) => c.id === channelIdRef.current) ?? CHANNELS[0];
 
-    const pid = channelPlaylistId(ch);
+    const pid = channelPickPlaylist(ch);
 
     playerRef.current = new window.YT.Player(containerRef.current, {
       height: "1",
@@ -128,6 +145,29 @@ export default function YouTubeRadio({
           } catch {
             /* ignore */
           }
+
+          // Restore saved position from localStorage
+          try {
+            const saved = localStorage.getItem(
+              posKey(channelIdRef.current ?? CHANNELS[0].id),
+            );
+            if (saved) {
+              const { index, time } = JSON.parse(saved) as {
+                index: number;
+                time: number;
+              };
+              if (index > 0) {
+                pendingSeekRef.current = time;
+                e.target.playVideoAt(index);
+              } else if (time > 30) {
+                // Same track (index 0) but not at the start
+                pendingSeekRef.current = time;
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+
           if (playingRef.current) {
             try {
               e.target.playVideo();
@@ -136,6 +176,35 @@ export default function YouTubeRadio({
             }
           }
           onReadyRef.current?.();
+
+          // Tick every second to expose current time + duration
+          timeIntervalRef.current = setInterval(() => {
+            if (!playerRef.current || !playingRef.current) return;
+            try {
+              const cur = playerRef.current.getCurrentTime();
+              const dur = playerRef.current.getDuration();
+              if (dur > 0)
+                onTimeUpdateRef.current?.(Math.floor(cur), Math.floor(dur));
+            } catch {
+              /* ignore */
+            }
+          }, 1000);
+
+          // Save position every 5 seconds while the tab is alive
+          saveIntervalRef.current = setInterval(() => {
+            if (!playerRef.current || !playingRef.current) return;
+            try {
+              const idx = playerRef.current.getPlaylistIndex();
+              const t = Math.floor(playerRef.current.getCurrentTime());
+              const ch = channelIdRef.current ?? CHANNELS[0].id;
+              localStorage.setItem(
+                posKey(ch),
+                JSON.stringify({ index: idx, time: t }),
+              );
+            } catch {
+              /* ignore */
+            }
+          }, 5000);
         },
         onStateChange: (e: { data: number }) => {
           if (e.data === window.YT.PlayerState.ENDED) {
@@ -146,6 +215,16 @@ export default function YouTubeRadio({
             }
           }
           if (e.data === window.YT.PlayerState.PLAYING) {
+            // Restore time position after playVideoAt (seek must wait until PLAYING)
+            if (pendingSeekRef.current !== null) {
+              const t = pendingSeekRef.current;
+              pendingSeekRef.current = null;
+              try {
+                playerRef.current?.seekTo(t, true);
+              } catch {
+                /* ignore */
+              }
+            }
             if (isFirstPlayRef.current) {
               isFirstPlayRef.current = false;
             } else {
@@ -178,6 +257,8 @@ export default function YouTubeRadio({
       document.head.appendChild(script);
     }
     return () => {
+      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
+      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
       try {
         playerRef.current?.destroy();
       } catch {

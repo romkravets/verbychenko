@@ -1,5 +1,6 @@
 "use client";
 
+import NavBar from "@/app/components/NavBar";
 import { RadioProvider } from "@/app/context/RadioContext";
 import dynamic from "next/dynamic";
 
@@ -15,6 +16,7 @@ export default function ClientProviders({
 }) {
   return (
     <RadioProvider>
+      <NavBar />
       {children}
       <PersistentRadioBar />
     </RadioProvider>
