@@ -43,12 +43,7 @@ export const CHANNELS: Channel[] = [
     emoji: "📺",
     description: "Канал @kanal.UAmusic — українська музика",
     country: "ua",
-    videoIds: [
-      "091V1n0yXMI",
-      "PaYWeaI9Jac",
-      "UO_Fov7-uXM",
-      "Z3MAZre--94",
-    ],
+    videoIds: ["091V1n0yXMI", "PaYWeaI9Jac", "UO_Fov7-uXM", "Z3MAZre--94"],
   },
   // ─── Зарубіжна музика (без Росії та Білорусі) ──────────────────
   {

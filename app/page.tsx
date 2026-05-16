@@ -46,9 +46,7 @@ export default function Home() {
         </div>
 
         {/* Radio player */}
-        <RadioPlayerClient
-          episodeId={DEMO_EPISODE_ID || undefined}
-        />
+        <RadioPlayerClient episodeId={DEMO_EPISODE_ID || undefined} />
 
         {/* How it works */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl w-full mt-4">

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import YouTubeRadio from "./YouTubeRadio";
 import { CHANNELS, randomPhrase } from "@/lib/channels";
+import { useCallback, useEffect, useRef, useState } from "react";
+import YouTubeRadio from "./YouTubeRadio";
 
 type PlayerState =
   | "idle"
@@ -28,7 +28,11 @@ interface RadioPlayerProps {
   useYouTube?: boolean; // use YouTube as music source
 }
 
-export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: RadioPlayerProps) {
+export default function RadioPlayer({
+  episodeId,
+  musicUrl,
+  useYouTube = true,
+}: RadioPlayerProps) {
   const [state, setState] = useState<PlayerState>("idle");
   const [currentText, setCurrentText] = useState(
     "Натисніть ▶ щоб розпочати ефір...",
@@ -47,7 +51,9 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
   const [ytPlaying, setYtPlaying] = useState(false);
 
   // Keep stateRef in sync for stable callbacks
-  useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Smoothly change music volume (works for both HTML audio and YouTube)
   const fadeMusicTo = useCallback((targetVolume: number) => {
@@ -193,7 +199,8 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
     if (useYouTube) {
       setYtPlaying(true);
       setState("playing-music");
-      const ch = CHANNELS.find((c) => c.id === selectedChannelId) ?? CHANNELS[0];
+      const ch =
+        CHANNELS.find((c) => c.id === selectedChannelId) ?? CHANNELS[0];
       setCurrentText(`🎵 Ефір розпочато! Канал: ${ch.emoji} ${ch.name}`);
       if (episodeId) setTimeout(() => playNextAnnouncement(), 5000);
       return;
@@ -282,14 +289,13 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
 
   return (
     <div className="w-full max-w-lg flex flex-col gap-4">
-
       {/* ── Aggressor countries notice ─────────────────────────────── */}
       <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-3 text-xs text-yellow-800 font-mono leading-snug flex gap-2 items-start">
         <span className="text-base mt-0.5">⚠️</span>
         <span>
           Наш ефір <strong>не транслює</strong> музику Росії та Білорусі —
-          країн-агресорів, що розв'язали збройну агресію проти України.
-          Тільки українська та світова музика.
+          країн-агресорів, що розв'язали збройну агресію проти України. Тільки
+          українська та світова музика.
         </span>
       </div>
 
@@ -301,7 +307,9 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
         <div className="flex flex-col gap-2">
           {/* Ukrainian channels */}
           <div>
-            <p className="text-xs text-amber-500 font-mono mb-1">🇺🇦 Українська музика</p>
+            <p className="text-xs text-amber-500 font-mono mb-1">
+              🇺🇦 Українська музика
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {uaChannels.map((ch) => (
                 <button
@@ -321,7 +329,9 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
           </div>
           {/* World channels */}
           <div>
-            <p className="text-xs text-amber-500 font-mono mb-1">🌍 Зарубіжна музика</p>
+            <p className="text-xs text-amber-500 font-mono mb-1">
+              🌍 Зарубіжна музика
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {worldChannels.map((ch) => (
                 <button
@@ -429,8 +439,11 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
           channelId={selectedChannelId}
           onReady={() => {
             if (isActiveRef.current) {
-              const ch = CHANNELS.find((c) => c.id === selectedChannelId) ?? CHANNELS[0];
-              setCurrentText(`🎵 Ефір розпочато! Канал: ${ch.emoji} ${ch.name}`);
+              const ch =
+                CHANNELS.find((c) => c.id === selectedChannelId) ?? CHANNELS[0];
+              setCurrentText(
+                `🎵 Ефір розпочато! Канал: ${ch.emoji} ${ch.name}`,
+              );
             }
           }}
           onTrackChange={handleTrackChange}
