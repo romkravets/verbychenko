@@ -1,8 +1,5 @@
 import Link from "next/link";
-import RadioPlayerClient from "./components/RadioPlayerClient";
-
-// TODO: replace with a real episodeId from DB once episode builder is ready
-const DEMO_EPISODE_ID = process.env.NEXT_PUBLIC_DEMO_EPISODE_ID ?? "";
+import NowPlayingBadge from "./components/NowPlayingBadge";
 
 export default function Home() {
   return (
@@ -45,8 +42,8 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Radio player */}
-        <RadioPlayerClient episodeId={DEMO_EPISODE_ID || undefined} />
+        {/* Now Playing indicator (replaces embedded player — player is now in bottom bar) */}
+        <NowPlayingBadge />
 
         {/* How it works */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl w-full mt-4">

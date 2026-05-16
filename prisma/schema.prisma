@@ -8,25 +8,32 @@ datasource db {
 }
 
 model Announcement {
-  id          String   @id @default(cuid())
-  name        String
-  age         Int
-  city        String
-  height      Int?     // зріст в см
-  weight      Int?     // вага в кг
-  hairColor   String?  // колір волосся
-  education   String?  // освіта
-  housing     String?  // житло
-  about       String   // про себе
-  lookingFor  String   // кого шукаю
-  aiText      String?  // згенерований текст ведучої
-  status      AnnouncementStatus @default(PENDING)
-  audioUrl    String?  // посилання на аудіо в R2
-  letterNumber Int?    // номер листа (як в оригінальній програмі)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String           @id @default(cuid())
+  type         AnnouncementType @default(DATING)
+  // --- Dating fields ---
+  name         String
+  age          Int              @default(0)
+  city         String
+  height       Int?
+  weight       Int?
+  hairColor    String?
+  education    String?
+  housing      String?
+  about        String           @default("")
+  lookingFor   String           @default("")
+  // --- Commercial fields ---
+  itemTitle    String?          // що продається / пропонується
+  price        String?          // ціна
+  contactPhone String?          // телефон контакту
+  // --- Common ---
+  aiText       String?
+  status       AnnouncementStatus @default(PENDING)
+  audioUrl     String?
+  letterNumber Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  queueItems  QueueItem[]
+  queueItems   QueueItem[]
 
   @@map("announcements")
 }
@@ -79,6 +86,11 @@ enum AnnouncementStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum AnnouncementType {
+  DATING
+  COMMERCIAL
 }
 
 enum EpisodeStatus {

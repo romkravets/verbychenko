@@ -1,3 +1,18 @@
+const COMMERCIAL_PROMPT = `Ти пишеш текст комерційного оголошення для радіопрограми "Вербиченько" (Українське радіо, 90-ті роки).
+
+Оголошення пишеться від ПЕРШОЇ ОСОБИ — як лист людини до радіо.
+
+СТРУКТУРА (саме в такому порядку):
+1. Короткий заклик до уваги — одне речення: "Шановні слухачі!", "Увага, вигідна пропозиція!", "До вашої уваги оголошення!"
+2. Що пропонується — чітко і тепло, 1-2 речення, в стилі 90-х (без emoji, без латиниці)
+3. Ціна або умови — якщо є, коротко і по-людськи
+4. Де і як зв'язатись — місто, телефон якщо є
+5. Невеличке завершення — "Чекаємо на ваш дзвінок!", "Звертайтесь — не пошкодуєте!", тощо
+
+МОВА: жива розмовна українська 90-х. Не рекламний буклет, а тепла людська розмова.
+ДОВЖИНА: 4–6 речень. Не більше.
+НЕ додавай вступних рядків, підписів чи коментарів — лише сам текст.`;
+
 const TAMARA_PROMPT = `Ти пишеш текст шлюбного оголошення для радіопрограми знайомств "Вербиченько" (Українське радіо, 90-ті роки).
 
 Оголошення пишеться від ПЕРШОЇ ОСОБИ — як лист людини до радіо.
@@ -136,4 +151,46 @@ export async function generateAnnouncement(
     ],
   });
   return cleanLLMOutput(res.choices[0].message.content ?? "");
+}
+
+export async function generateCommercialAnnouncement(data: {
+  city: string;
+  itemTitle: string;
+  price?: string;
+  contactPhone?: string;
+  about: string;
+}): Promise<string> {
+  const userMsg = [
+    `Місто: ${data.city}`,
+    `Що пропонується: ${data.itemTitle}`,
+    data.price ? `Ціна: ${data.price}` : null,
+    data.contactPhone ? `Телефон: ${data.contactPhone}` : null,
+    `Деталі: ${data.about}`,
+  ].filter(Boolean).join("\n");
+
+  const provider = process.env.AI_PROVIDER ?? "groq";
+
+  if (provider === "claude") {
+    const Anthropic = (await import("@anthropic-ai/sdk")).default;
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const msg = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      system: COMMERCIAL_PROMPT,
+      messages: [{ role: "user", content: userMsg }],
+    });
+    return (msg.content[0] as { text: string }).text.trim();
+  }
+
+  const Groq = (await import("groq-sdk")).default;
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const res = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    max_tokens: 300,
+    messages: [
+      { role: "system", content: COMMERCIAL_PROMPT },
+      { role: "user", content: userMsg },
+    ],
+  });
+  return (res.choices[0].message.content ?? "").trim();
 }
