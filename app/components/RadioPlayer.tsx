@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import YouTubeRadio from "./YouTubeRadio";
+import { CHANNELS, randomPhrase } from "@/lib/channels";
 
 type PlayerState =
   | "idle"
@@ -33,12 +34,20 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
     "Натисніть ▶ щоб розпочати ефір...",
   );
   const [error, setError] = useState("");
+  const [selectedChannelId, setSelectedChannelId] = useState(CHANNELS[0].id);
+  const [isBetweenSongAnn, setIsBetweenSongAnn] = useState(false);
 
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const annRef = useRef<HTMLAudioElement | null>(null);
+  const betweenSongRef = useRef<HTMLAudioElement | null>(null);
   const isActiveRef = useRef(false);
+  const isBetweenSongBusyRef = useRef(false);
+  const stateRef = useRef<PlayerState>("idle"); // mirror of state for use inside stable callbacks
   const [ytVolume, setYtVolume] = useState(MUSIC_MAX_VOLUME * 100);
   const [ytPlaying, setYtPlaying] = useState(false);
+
+  // Keep stateRef in sync for stable callbacks
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   // Smoothly change music volume (works for both HTML audio and YouTube)
   const fadeMusicTo = useCallback((targetVolume: number) => {
@@ -120,6 +129,61 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
     }
   }, [episodeId, fadeMusicTo]);
 
+  // Called when YouTube starts a new track — play a short Tamara announcement
+  const handleTrackChange = useCallback(async () => {
+    if (!isActiveRef.current) return;
+    if (isBetweenSongBusyRef.current) return;
+    if (stateRef.current === "playing-ann") return; // announcement already playing
+
+    isBetweenSongBusyRef.current = true;
+
+    // duck music
+    fadeMusicTo(MUSIC_LOW_VOLUME);
+    setIsBetweenSongAnn(true);
+    setCurrentText("🎙️ Ведуча Тамара...");
+
+    try {
+      const phrase = randomPhrase();
+      const res = await fetch("/api/tts-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: phrase }),
+      });
+
+      if (!res.ok) throw new Error("TTS failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      betweenSongRef.current = audio;
+
+      setCurrentText(`📻 ${phrase}`);
+
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        betweenSongRef.current = null;
+        fadeMusicTo(MUSIC_MAX_VOLUME);
+        setIsBetweenSongAnn(false);
+        isBetweenSongBusyRef.current = false;
+        setCurrentText("🎵 Грає музика...");
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        betweenSongRef.current = null;
+        fadeMusicTo(MUSIC_MAX_VOLUME);
+        setIsBetweenSongAnn(false);
+        isBetweenSongBusyRef.current = false;
+      };
+
+      await audio.play();
+    } catch {
+      // TTS failed gracefully — restore music and continue
+      fadeMusicTo(MUSIC_MAX_VOLUME);
+      setIsBetweenSongAnn(false);
+      isBetweenSongBusyRef.current = false;
+    }
+  }, [fadeMusicTo]); // stable — state accessed via stateRef
+
   const startRadio = useCallback(async () => {
     if (state !== "idle" && state !== "error") return;
     setError("");
@@ -129,7 +193,8 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
     if (useYouTube) {
       setYtPlaying(true);
       setState("playing-music");
-      setCurrentText("🎵 Ефір розпочато! Грає українська народна музика...");
+      const ch = CHANNELS.find((c) => c.id === selectedChannelId) ?? CHANNELS[0];
+      setCurrentText(`🎵 Ефір розпочато! Канал: ${ch.emoji} ${ch.name}`);
       if (episodeId) setTimeout(() => playNextAnnouncement(), 5000);
       return;
     }
@@ -171,7 +236,9 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
 
   const stopRadio = useCallback(() => {
     isActiveRef.current = false;
+    isBetweenSongBusyRef.current = false;
     setYtPlaying(false);
+    setIsBetweenSongAnn(false);
     if (musicRef.current) {
       musicRef.current.pause();
       musicRef.current = null;
@@ -179,6 +246,10 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
     if (annRef.current) {
       annRef.current.pause();
       annRef.current = null;
+    }
+    if (betweenSongRef.current) {
+      betweenSongRef.current.pause();
+      betweenSongRef.current = null;
     }
     setState("idle");
     setCurrentText("Натисніть ▶ щоб розпочати ефір...");
@@ -194,9 +265,84 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
   const isPlaying = state === "playing-music" || state === "playing-ann";
   const isLoading = state === "loading-music" || state === "loading-ann";
 
+  // Switch channel only when radio is stopped (or restart it)
+  const handleChannelSelect = useCallback(
+    (channelId: string) => {
+      if (selectedChannelId === channelId) return;
+      if (isPlaying || isLoading) {
+        stopRadio();
+      }
+      setSelectedChannelId(channelId);
+    },
+    [selectedChannelId, isPlaying, isLoading, stopRadio],
+  );
+
+  const uaChannels = CHANNELS.filter((c) => c.country === "ua");
+  const worldChannels = CHANNELS.filter((c) => c.country === "world");
+
   return (
-    <div className="w-full max-w-md">
-      {/* Radio display */}
+    <div className="w-full max-w-lg flex flex-col gap-4">
+
+      {/* ── Aggressor countries notice ─────────────────────────────── */}
+      <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-3 text-xs text-yellow-800 font-mono leading-snug flex gap-2 items-start">
+        <span className="text-base mt-0.5">⚠️</span>
+        <span>
+          Наш ефір <strong>не транслює</strong> музику Росії та Білорусі —
+          країн-агресорів, що розв'язали збройну агресію проти України.
+          Тільки українська та світова музика.
+        </span>
+      </div>
+
+      {/* ── Channel selector ───────────────────────────────────────── */}
+      <div className="bg-amber-100 rounded-xl p-3 border border-amber-200">
+        <p className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">
+          🎚 Канал
+        </p>
+        <div className="flex flex-col gap-2">
+          {/* Ukrainian channels */}
+          <div>
+            <p className="text-xs text-amber-500 font-mono mb-1">🇺🇦 Українська музика</p>
+            <div className="flex flex-wrap gap-1.5">
+              {uaChannels.map((ch) => (
+                <button
+                  key={ch.id}
+                  onClick={() => handleChannelSelect(ch.id)}
+                  title={ch.description}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    selectedChannelId === ch.id
+                      ? "bg-amber-700 text-amber-100 border-amber-700 shadow-md"
+                      : "bg-white text-amber-800 border-amber-300 hover:bg-amber-50"
+                  }`}
+                >
+                  {ch.emoji} {ch.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* World channels */}
+          <div>
+            <p className="text-xs text-amber-500 font-mono mb-1">🌍 Зарубіжна музика</p>
+            <div className="flex flex-wrap gap-1.5">
+              {worldChannels.map((ch) => (
+                <button
+                  key={ch.id}
+                  onClick={() => handleChannelSelect(ch.id)}
+                  title={ch.description}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    selectedChannelId === ch.id
+                      ? "bg-amber-700 text-amber-100 border-amber-700 shadow-md"
+                      : "bg-white text-amber-800 border-amber-300 hover:bg-amber-50"
+                  }`}
+                >
+                  {ch.emoji} {ch.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Radio display ──────────────────────────────────────────── */}
       <div className="bg-amber-900 rounded-2xl p-6 shadow-2xl border-4 border-amber-700 select-none">
         {/* Faux LED display */}
         <div className="bg-black rounded-lg px-4 py-3 mb-5 min-h-[60px] flex items-center border border-amber-800">
@@ -267,21 +413,27 @@ export default function RadioPlayer({ episodeId, musicUrl, useYouTube = true }: 
 
       {/* Status label */}
       <p className="text-center text-xs text-amber-700 mt-3 font-mono tracking-wide uppercase">
-        {state === "playing-ann"
-          ? "🔴 ON AIR"
+        {state === "playing-ann" || isBetweenSongAnn
+          ? "🔴 ON AIR — Ведуча Тамара"
           : state === "playing-music"
-            ? "🟢 LIVE"
+            ? "🟢 LIVE — Музичний ефір"
             : "⚫ OFF"}
       </p>
 
       {/* Hidden YouTube player for background music */}
       {useYouTube && (
         <YouTubeRadio
+          key={selectedChannelId}
           playing={ytPlaying}
           volume={ytVolume}
+          channelId={selectedChannelId}
           onReady={() => {
-            if (isActiveRef.current) setCurrentText("🎵 Ефір розпочато! Грає українська народна музика...");
+            if (isActiveRef.current) {
+              const ch = CHANNELS.find((c) => c.id === selectedChannelId) ?? CHANNELS[0];
+              setCurrentText(`🎵 Ефір розпочато! Канал: ${ch.emoji} ${ch.name}`);
+            }
           }}
+          onTrackChange={handleTrackChange}
         />
       )}
     </div>

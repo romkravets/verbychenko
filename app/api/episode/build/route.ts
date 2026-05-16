@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { textToSpeech, wrapWithHostIntro } from "@/lib/tts";
 import { uploadAudio } from "@/lib/storage";
 import { generateEditorial, generateIntro, generateOutro } from "@/lib/editorial";
+import { generateHostLetterIntro } from "@/lib/llm";
 
 export const maxDuration = 300;
 
@@ -62,7 +63,8 @@ export async function POST(req: NextRequest) {
       annJobMap.set(ann.id, ann.audioUrl);
     } else if (ann.aiText) {
       const letterNumber = ann.letterNumber ?? await db.announcement.count({ where: { createdAt: { lte: ann.createdAt } } });
-      const fullText = wrapWithHostIntro(ann.aiText, letterNumber, ann.city);
+      const hostIntro = await generateHostLetterIntro(letterNumber, ann.city);
+      const fullText = wrapWithHostIntro(ann.aiText, hostIntro);
       jobs.push({
         type: "ANNOUNCEMENT",
         text: fullText,

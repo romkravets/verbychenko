@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-
-// Ukrainian folk music playlists (public YouTube playlists)
-const PLAYLISTS = [
-  "PLz7GgOB_9OBiVpOgSNXm-B-3wd9XVXTDO", // Народні пісні
-];
+import { CHANNELS, channelFirstVideo, channelPlaylist } from "@/lib/channels";
 
 declare global {
   interface Window {
@@ -28,100 +24,113 @@ interface YoutubePlayer {
 
 interface Props {
   playing: boolean;
-  volume: number; // 0-100
+  volume: number;
+  channelId?: string;
   onReady?: () => void;
+  onTrackChange?: () => void;
 }
 
-export default function YouTubeRadio({ playing, volume, onReady }: Props) {
+export default function YouTubeRadio({ playing, volume, channelId, onReady, onTrackChange }: Props) {
   const playerRef = useRef<YoutubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
+  const isFirstPlayRef = useRef(true);
 
+  const playingRef = useRef(playing);
+  const volumeRef = useRef(volume);
+  const onReadyRef = useRef(onReady);
+  const onTrackChangeRef = useRef(onTrackChange);
+  const channelIdRef = useRef(channelId);
+
+  useEffect(() => { playingRef.current = playing; }, [playing]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
+  useEffect(() => { onTrackChangeRef.current = onTrackChange; }, [onTrackChange]);
+  useEffect(() => { channelIdRef.current = channelId; }, [channelId]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    try { playerRef.current.setVolume(volume); } catch { /* ignore */ }
+  }, [volume]);
+
+  useEffect(() => {
+    if (!readyRef.current || !playerRef.current) return;
+    try {
+      if (playing) { playerRef.current.playVideo(); }
+      else { playerRef.current.pauseVideo(); }
+    } catch { /* ignore */ }
+  }, [playing]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const initPlayer = useCallback(() => {
     if (!containerRef.current || playerRef.current) return;
+    const ch = CHANNELS.find((c) => c.id === channelIdRef.current) ?? CHANNELS[0];
 
     playerRef.current = new window.YT.Player(containerRef.current, {
       height: "1",
       width: "1",
-      // Реальний відеоID — українська народна музика (замінити на свій плейлист)
-      videoId: "K5KAc5CoCuk",
+      videoId: channelFirstVideo(ch),
       playerVars: {
-        autoplay: 1,
+        autoplay: 0,
         controls: 0,
         disablekb: 1,
         fs: 0,
         iv_load_policy: 3,
         modestbranding: 1,
         rel: 0,
+        playlist: channelPlaylist(ch),
         loop: 1,
-        playlist: "K5KAc5CoCuk", // loop потребує playlist з тим самим ID
         mute: 0,
       },
       events: {
         onReady: (e: { target: YoutubePlayer }) => {
           readyRef.current = true;
           playerRef.current = e.target;
-          if (typeof e.target.setVolume === "function") e.target.setVolume(volume);
-          onReady?.();
+          try { e.target.setVolume(volumeRef.current); } catch { /* ignore */ }
+          if (playingRef.current) {
+            try { e.target.playVideo(); } catch { /* ignore */ }
+          }
+          onReadyRef.current?.();
         },
         onStateChange: (e: { data: number }) => {
-          // Auto-play next track when current ends
           if (e.data === window.YT.PlayerState.ENDED) {
-            playerRef.current?.nextVideo();
+            try { playerRef.current?.nextVideo(); } catch { /* ignore */ }
+          }
+          if (e.data === window.YT.PlayerState.PLAYING) {
+            if (isFirstPlayRef.current) { isFirstPlayRef.current = false; }
+            else { onTrackChangeRef.current?.(); }
           }
         },
         onError: () => {
-          // Skip errored video
-          playerRef.current?.nextVideo();
+          try { playerRef.current?.nextVideo(); } catch { /* ignore */ }
         },
       },
     });
-  }, [volume, onReady]);
+  }, []); // stable — all values via refs
 
-  // Load YouTube IFrame API
   useEffect(() => {
-    if (window.YT?.Player) {
+    if (typeof window !== "undefined" && window.YT?.Player) {
       initPlayer();
       return;
     }
-
     window.onYouTubeIframeAPIReady = initPlayer;
-
-    const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    script.async = true;
-    document.head.appendChild(script);
-
-    return () => {
-      playerRef.current?.destroy();
-      playerRef.current = null;
-    };
-  }, [initPlayer]);
-
-  // Control playback
-  useEffect(() => {
-    if (!readyRef.current || !playerRef.current) return;
-    const player = playerRef.current;
-    if (typeof player.playVideo !== "function") return;
-    if (playing) {
-      player.playVideo();
-    } else {
-      player.pauseVideo();
+    if (!document.getElementById("yt-iframe-api")) {
+      const script = document.createElement("script");
+      script.id = "yt-iframe-api";
+      script.src = "https://www.youtube.com/iframe_api";
+      script.async = true;
+      document.head.appendChild(script);
     }
-  }, [playing]);
+    return () => {
+      try { playerRef.current?.destroy(); } catch { /* ignore */ }
+      playerRef.current = null;
+      readyRef.current = false;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Control volume
-  useEffect(() => {
-    if (!readyRef.current || !playerRef.current) return;
-    const player = playerRef.current;
-    if (typeof player.setVolume !== "function") return;
-    player.setVolume(volume);
-  }, [volume]);
-
-  // Hidden iframe container
   return (
     <div
-      style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none", overflow: "hidden" }}
+      style={{ position: "fixed", top: -9999, left: -9999, width: 1, height: 1, pointerEvents: "none" }}
       aria-hidden="true"
     >
       <div ref={containerRef} />

@@ -51,11 +51,28 @@ model QueueItem {
   playedAt       DateTime?
   episodeId      String
   announcementId String?
+  youtubeVideoId String?
 
-  episode      Episode       @relation(fields: [episodeId], references: [id])
-  announcement Announcement? @relation(fields: [announcementId], references: [id])
+  episode        Episode        @relation(fields: [episodeId], references: [id])
+  announcement   Announcement?  @relation(fields: [announcementId], references: [id])
+  youtubeVideo   YoutubeVideo?  @relation(fields: [youtubeVideoId], references: [id])
 
   @@map("queue_items")
+}
+
+model YoutubeVideo {
+  id          String   @id @default(cuid())
+  videoId     String   @unique
+  channelId   String
+  channelName String
+  title       String
+  radioText   String   @db.Text
+  audioUrl    String?
+  processedAt DateTime @default(now())
+
+  queueItems  QueueItem[]
+
+  @@map("youtube_videos")
 }
 
 enum AnnouncementStatus {
@@ -76,4 +93,5 @@ enum QueueType {
   EDITORIAL
   INTRO
   OUTRO
+  NEWS
 }

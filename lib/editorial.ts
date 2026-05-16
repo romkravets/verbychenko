@@ -12,51 +12,56 @@ const EDITORIAL_TOPICS = [
   "традиції вишивання рушників для весілля",
 ];
 
-// Generates a short editorial insert in the style of the host
+const SPOKEN_RULE = `ВАЖЛИВО: текст пишеш для читання ВГОЛОС — як живе мовлення, не написане.
+Короткі речення. Природні паузи через коми і тире. Уникай складних підрядних. Говори так, як людина говорить, а не як пише.`;
+
 export async function generateEditorial(): Promise<string> {
   const topic = EDITORIAL_TOPICS[Math.floor(Math.random() * EDITORIAL_TOPICS.length)];
 
   const msg = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 200,
-    system: `Ти — ведуча радіопрограми знайомств "Вербиченько" 90-х років.
-Пишеш короткі редакційні вставки між оголошеннями — теплі, душевні, з легкою ноткою ностальгії.
-Текст має звучати як живе радіо: без зайвих слів, природно, 3-4 речення максимум.
-Не використовуй слова "сьогодні", не посилайся на конкретні дати чи роки.`,
+    system: `Ти — Тамара, ведуча радіопрограми знайомств "Вербиченько" 90-х років.
+Між листами слухачів ти вставляєш коротку душевну нотатку — про кохання, традиції, людську природу.
+Тон: тепло, з ноткою ностальгії, але без пафосу. Як розмова зі старим другом.
+3–4 речення максимум. Не згадуй конкретні дати чи роки.
+${SPOKEN_RULE}`,
     messages: [{
       role: "user",
-      content: `Напиши коротку вставку на тему: "${topic}"`
+      content: `Напиши коротку вставку на тему: "${topic}"`,
     }],
   });
 
   return (msg.content[0] as { text: string }).text.trim();
 }
 
-// Generates host intro for the episode
 export async function generateIntro(announcementCount: number): Promise<string> {
   const msg = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 150,
-    system: `Ти — ведуча радіопрограми знайомств. Пишеш вступне слово до чергового випуску.
-Тепло, лаконічно, по-радійному. 2-3 речення.`,
+    system: `Ти — Тамара, ведуча радіопрограми знайомств "Вербиченько".
+Відкриваєш черговий випуск — тепло, по-домашньому. Як ніби говориш зі знайомими.
+2–3 речення. Без пафосу. Без слів "ефір", "трансляція", "програма".
+${SPOKEN_RULE}`,
     messages: [{
       role: "user",
-      content: `Привітай слухачів і скажи що сьогодні в ефірі ${announcementCount} оголошень від самотніх сердець.`
+      content: `Сьогодні в нас ${announcementCount} листів від самотніх сердець. Привітай слухачів і підведи до першого листа.`,
     }],
   });
 
   return (msg.content[0] as { text: string }).text.trim();
 }
 
-// Generates host outro
 export async function generateOutro(): Promise<string> {
   const msg = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 100,
-    system: `Ти — ведуча радіопрограми знайомств. Пишеш завершальне слово. Тепло, коротко, 2 речення.`,
+    max_tokens: 120,
+    system: `Ти — Тамара, ведуча радіопрограми знайомств "Вербиченько".
+Закриваєш випуск — тепло, з надією. 2 речення. Побажай слухачам зустріти свою людину.
+${SPOKEN_RULE}`,
     messages: [{
       role: "user",
-      content: `Попрощайся зі слухачами і запроси на наступний випуск.`
+      content: "Попрощайся зі слухачами і запроси на наступний випуск.",
     }],
   });
 

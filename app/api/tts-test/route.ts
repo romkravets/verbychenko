@@ -5,7 +5,7 @@ import { uploadAudio } from "@/lib/storage";
 export async function GET() {
   const testText = "Де ти, моя ненька, озовися і прийди в моє життя! Мене звати Василь, мені 54 роки, я житель Тернополя. Маю свій дім, де росте щедрий сад. Шукаю добру жінку для спільного життя. Пияків прошу не турбувати.";
 
-  const fullText = wrapWithHostIntro(testText, 364, "Тернополя");
+  const fullText = wrapWithHostIntro(testText, "А ось лист номер 364 — із самого Тернополя надійшов. Послухаємо...");
 
   // Генеруємо аудіо
   const audioBuffer = await textToSpeech(fullText);

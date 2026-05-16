@@ -4,9 +4,6 @@ import RadioPlayerClient from "./components/RadioPlayerClient";
 // TODO: replace with a real episodeId from DB once episode builder is ready
 const DEMO_EPISODE_ID = process.env.NEXT_PUBLIC_DEMO_EPISODE_ID ?? "";
 
-// Optional: host a looping background music file in /public/music/
-const BG_MUSIC_URL = "/music/background.mp3";
-
 export default function Home() {
   return (
     <div className="min-h-screen bg-amber-50 flex flex-col">
@@ -51,7 +48,6 @@ export default function Home() {
         {/* Radio player */}
         <RadioPlayerClient
           episodeId={DEMO_EPISODE_ID || undefined}
-          musicUrl={BG_MUSIC_URL}
         />
 
         {/* How it works */}

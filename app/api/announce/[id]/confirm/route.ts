@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { textToSpeech, wrapWithHostIntro } from "@/lib/tts";
 import { uploadAudio } from "@/lib/storage";
+import { generateHostLetterIntro } from "@/lib/llm";
 
 export async function POST(
   _req: NextRequest,
@@ -23,11 +24,8 @@ export async function POST(
     letterNumber = await db.announcement.count();
   }
 
-  const fullText = wrapWithHostIntro(
-    announcement.aiText,
-    letterNumber,
-    announcement.city,
-  );
+  const hostIntro = await generateHostLetterIntro(letterNumber, announcement.city);
+  const fullText = wrapWithHostIntro(announcement.aiText, hostIntro);
 
   try {
     // Generate TTS audio
