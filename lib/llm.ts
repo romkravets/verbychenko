@@ -93,7 +93,10 @@ const HOST_INTRO_PROMPT = `Ти — Тамара, ведуча радіопро�
 
 type AnnouncementInput = Parameters<typeof formatUserInput>[0];
 
-export async function generateHostLetterIntro(letterNumber: number, city: string): Promise<string> {
+export async function generateHostLetterIntro(
+  letterNumber: number,
+  city: string,
+): Promise<string> {
   const provider = process.env.AI_PROVIDER ?? "groq";
   const userMsg = `Лист номер ${letterNumber}, надійшов із міста ${city}.`;
 
@@ -166,7 +169,9 @@ export async function generateCommercialAnnouncement(data: {
     data.price ? `Ціна: ${data.price}` : null,
     data.contactPhone ? `Телефон: ${data.contactPhone}` : null,
     `Деталі: ${data.about}`,
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const provider = process.env.AI_PROVIDER ?? "groq";
 

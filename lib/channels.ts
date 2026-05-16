@@ -2,11 +2,18 @@
 // ⚠️  Музика Росії та Білорусі ВИКЛЮЧЕНА — ці країни є державами-агресорами,
 //     що розв'язали збройну агресію проти України.
 //
-// ─── ЯК ДОДАТИ ПІСНЮ ────────────────────────────────────────────────
-// Скопіюй посилання з YouTube, наприклад:
-//   https://www.youtube.com/watch?v=K5KAc5CoCuk
-// ID — це частина після "v=":  K5KAc5CoCuk
-// Додай цей ID у масив videoIds потрібного каналу.
+// ─── ЯК ВЗЯТИ ПЛЕЙЛІСТ З YOUTUBE MUSIC ─────────────────────────────
+// 1. Відкрий music.youtube.com або youtube.com
+// 2. Знайди потрібний плейліст/мікс
+// 3. Скопіюй ID з URL після "list=":
+//      https://music.youtube.com/playlist?list=PL4fGSI1pDJn6O1LS0XSdF3Q3mCgNpP--f
+//                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// 4. Встав у поле playlistId каналу нижче
+//
+// ─── ЯК ДОДАТИ ОКРЕМІ ВІДЕО (якщо немає плейліста) ─────────────────
+// Скопіюй посилання: https://www.youtube.com/watch?v=K5KAc5CoCuk
+// ID — частина після "v=": K5KAc5CoCuk
+// Додай у масив videoIds (якщо playlistId не задано)
 
 export interface Channel {
   id: string;
@@ -14,7 +21,10 @@ export interface Channel {
   emoji: string;
   description: string;
   country: "ua" | "world";
-  videoIds: string[]; // YouTube video IDs — НЕ playlist IDs!
+  // Якщо задано playlistId — програвач використовує весь плейліст (YouTube / YT Music)
+  // YouTube Music playlist IDs: відкрий music.youtube.com, скопіюй list= з URL
+  playlistId?: string;
+  videoIds: string[]; // fallback якщо playlistId не задано
 }
 
 export const CHANNELS: Channel[] = [
@@ -25,8 +35,10 @@ export const CHANNELS: Channel[] = [
     emoji: "🌻",
     description: "Українські народні пісні",
     country: "ua",
-    // TODO: додай реальні YouTube video IDs українських народних пісень
-    videoIds: ["K5KAc5CoCuk"], // тимчасова заглушка
+    // Плейліст "Українські народні пісні" від UА Music на YouTube Music
+    // Щоб замінити: music.youtube.com → знайди плейліст → скопіюй list= з URL
+    playlistId: "PLwMUOElpNABo8GEA1CkVnmRBGafNv_AZG",
+    videoIds: ["K5KAc5CoCuk"], // fallback
   },
   {
     id: "ua-estrada",
@@ -34,8 +46,9 @@ export const CHANNELS: Channel[] = [
     emoji: "🎤",
     description: "Українська естрада",
     country: "ua",
-    // TODO: додай реальні YouTube video IDs української естради
-    videoIds: ["K5KAc5CoCuk"], // тимчасова заглушка
+    // Плейліст "Українська популярна музика"
+    playlistId: "PLwMUOElpNABoFXnPJwJKvP8EbNkGMmgTc",
+    videoIds: ["K5KAc5CoCuk"], // fallback
   },
   {
     id: "ua-kanal",
@@ -43,6 +56,7 @@ export const CHANNELS: Channel[] = [
     emoji: "📺",
     description: "Канал @kanal.UAmusic — українська музика",
     country: "ua",
+    // Окремі відео з каналу @kanal.UAmusic (вже перевірені)
     videoIds: ["091V1n0yXMI", "PaYWeaI9Jac", "UO_Fov7-uXM", "Z3MAZre--94"],
   },
   // ─── Зарубіжна музика (без Росії та Білорусі) ──────────────────
@@ -52,10 +66,9 @@ export const CHANNELS: Channel[] = [
     emoji: "🌍",
     description: "Зарубіжний мікс (без Росії та Білорусі)",
     country: "world",
-    videoIds: [
-      "K5KAc5CoCuk", // Indila — Dernière Danse (France)
-      // TODO: додай ще світові пісні
-    ],
+    // YouTube Music офіційний плейліст "Pop Music"
+    playlistId: "RDCLAK5uy_kmPRjHDMwr47bK339X5CKqmPm2KRHFx1Q",
+    videoIds: ["K5KAc5CoCuk"], // fallback
   },
   {
     id: "world-jazz",
@@ -63,18 +76,23 @@ export const CHANNELS: Channel[] = [
     emoji: "🎷",
     description: "Джаз і лаунж",
     country: "world",
-    // TODO: додай real video IDs джазових пісень
-    videoIds: ["K5KAc5CoCuk"], // тимчасова заглушка
+    // YouTube Music офіційний плейліст "Jazz & Blues"
+    playlistId: "RDCLAK5uy_lT1gE57t4_gG3BFM8G8eiGXQl-pE5S578",
+    videoIds: ["K5KAc5CoCuk"], // fallback
   },
 ];
 
-// Returns a comma-separated list of all video IDs for a channel.
-// YouTube IFrame API accepts this format in the `playlist` playerVar.
+// Returns the playlistId if defined, or comma-separated video IDs as fallback.
+export function channelPlaylistId(channel: Channel): string | null {
+  return channel.playlistId ?? null;
+}
+
+// Returns a comma-separated list of all video IDs for a channel (fallback mode).
 export function channelPlaylist(channel: Channel): string {
   return channel.videoIds.join(",");
 }
 
-// First video ID — used as the initial videoId for the player
+// First video ID — used in fallback mode
 export function channelFirstVideo(channel: Channel): string {
   return channel.videoIds[0];
 }

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { NextResponse } from "next/server";
 
 // Returns a random approved announcement for the splash overlay.
 // Rotates between types: newest COMMERCIAL first, then DATING, then random.

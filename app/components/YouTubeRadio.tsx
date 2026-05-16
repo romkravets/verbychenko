@@ -1,6 +1,11 @@
 "use client";
 
-import { channelFirstVideo, channelPlaylist, CHANNELS } from "@/lib/channels";
+import {
+  channelFirstVideo,
+  channelPlaylist,
+  channelPlaylistId,
+  CHANNELS,
+} from "@/lib/channels";
 import { useCallback, useEffect, useRef } from "react";
 
 declare global {
@@ -91,10 +96,13 @@ export default function YouTubeRadio({
     const ch =
       CHANNELS.find((c) => c.id === channelIdRef.current) ?? CHANNELS[0];
 
+    const pid = channelPlaylistId(ch);
+
     playerRef.current = new window.YT.Player(containerRef.current, {
       height: "1",
       width: "1",
-      videoId: channelFirstVideo(ch),
+      // When using a playlist ID, leave videoId empty — YouTube picks the first track
+      videoId: pid ? "" : channelFirstVideo(ch),
       playerVars: {
         autoplay: 0,
         controls: 0,
@@ -103,9 +111,13 @@ export default function YouTubeRadio({
         iv_load_policy: 3,
         modestbranding: 1,
         rel: 0,
-        playlist: channelPlaylist(ch),
-        loop: 1,
+        // YouTube Music / YouTube playlist mode
+        ...(pid
+          ? { list: pid, listType: "playlist" }
+          : { playlist: channelPlaylist(ch), loop: 1 }),
         mute: 0,
+        vq: "tiny", // forces lowest video quality (176×144) — minimal video buffer
+        playsinline: 1, // prevent iOS fullscreen (saves battery/memory)
       },
       events: {
         onReady: (e: { target: YoutubePlayer }) => {

@@ -184,10 +184,14 @@ export default function PersistentRadioBar() {
       try {
         const res = await fetch("/api/announce/featured");
         if (res.ok) {
-          const data = await res.json() as { announcement: FeaturedAnnouncement | null };
+          const data = (await res.json()) as {
+            announcement: FeaturedAnnouncement | null;
+          };
           if (data.announcement) setSplash(data.announcement);
         }
-      } catch { /* no announcements — skip silently */ }
+      } catch {
+        /* no announcements — skip silently */
+      }
     }
 
     if (next % (SONGS_BEFORE_INSERT * 3) === 0) {
