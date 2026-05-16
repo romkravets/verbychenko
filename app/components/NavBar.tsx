@@ -4,28 +4,29 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "🏠 Головна" },
-  { href: "/submit", label: "✉️ Подати оголошення" },
-  { href: "/admin", label: "⚙️ Адмінка" },
+  { href: "/", label: "Головна" },
+  { href: "/submit", label: "Подати оголошення" },
+  { href: "/schedule", label: "📅 Розклад" },
+  { href: "/admin", label: "Адмінка" },
 ];
 
 export default function NavBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="bg-amber-950 border-b border-amber-800 sticky top-0 z-40">
-      <div className="max-w-4xl mx-auto px-4 flex items-center gap-1 h-11">
+    <nav className="sticky top-0 z-40 bg-black/70 backdrop-blur-md border-b border-white/10">
+      <div className="max-w-[1078px] mx-auto px-6 flex items-center h-12 gap-6">
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-1.5 text-amber-300 font-bold text-sm mr-4 flex-shrink-0"
+          className="flex items-center gap-2 text-white font-light text-[16px] shrink-0 mr-auto tracking-wide"
         >
-          <span className="text-lg">📻</span>
-          <span className="hidden sm:inline">Радіо Вербиченко</span>
+          <span>📻</span>
+          <span className="hidden sm:inline">Радіо Вербиченька</span>
         </Link>
 
         {/* Nav links */}
-        <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
+        <div className="flex items-center gap-1 overflow-x-auto">
           {LINKS.map(({ href, label }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -33,10 +34,10 @@ export default function NavBar() {
               <Link
                 key={href}
                 href={href}
-                className={`px-3 py-1.5 rounded text-xs font-mono whitespace-nowrap transition ${
+                className={`px-4 py-1 text-[11px] tracking-widest uppercase font-mono whitespace-nowrap transition rounded-full border ${
                   active
-                    ? "bg-amber-700 text-amber-100"
-                    : "text-amber-400 hover:bg-amber-900 hover:text-amber-200"
+                    ? "border-white/30 text-white bg-white/10"
+                    : "border-transparent text-whisper-gray hover:text-white"
                 }`}
               >
                 {label}

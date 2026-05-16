@@ -9,6 +9,11 @@ const PersistentRadioBar = dynamic(
   { ssr: false },
 );
 
+const BackgroundCanvas = dynamic(
+  () => import("@/app/components/BackgroundCanvas"),
+  { ssr: false },
+);
+
 export default function ClientProviders({
   children,
 }: {
@@ -16,8 +21,12 @@ export default function ClientProviders({
 }) {
   return (
     <RadioProvider>
+      {/* Particle layer sits above body #000 but below all content */}
+      <BackgroundCanvas />
       <NavBar />
-      {children}
+      <div className="relative flex-1 flex flex-col" style={{ zIndex: 2 }}>
+        {children}
+      </div>
       <PersistentRadioBar />
     </RadioProvider>
   );

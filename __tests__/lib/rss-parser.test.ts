@@ -1,6 +1,8 @@
 import { parseXmlTitles } from "@/lib/rss-parser";
 import { describe, expect, it } from "vitest";
 
+// ─── Test fixtures ─────────────────────────────────────────────────────────────
+
 const SIMPLE_RSS = `<?xml version="1.0"?>
 <rss version="2.0">
   <channel>
@@ -54,8 +56,10 @@ const SHORT_TITLES_RSS = `<?xml version="1.0"?>
   </channel>
 </rss>`;
 
-describe("parseXmlTitles", () => {
-  it("extracts plain text titles from items", () => {
+// ─── parseXmlTitles ───────────────────────────────────────────────────────────
+
+describe("parseXmlTitles — extract headlines from an RSS feed for on-air reading", () => {
+  it("reads plain text titles from each <item>", () => {
     const result = parseXmlTitles(SIMPLE_RSS, 5);
     expect(result).toHaveLength(3);
     expect(result[0]).toBe("First headline about the war");
@@ -63,50 +67,48 @@ describe("parseXmlTitles", () => {
     expect(result[2]).toBe("Third headline about sports events");
   });
 
-  it("extracts CDATA-wrapped titles", () => {
+  it("unwraps CDATA-wrapped titles (common in Ukrainian news feeds)", () => {
     const result = parseXmlTitles(CDATA_RSS, 5);
     expect(result).toHaveLength(2);
     expect(result[0]).toBe("CDATA headline number one here");
   });
 
-  it("decodes HTML entities", () => {
+  it("decodes HTML entities so Тамара reads real characters aloud", () => {
     const result = parseXmlTitles(ENTITIES_RSS, 5);
     expect(result[0]).toContain("&");
     expect(result[0]).toContain(">");
     expect(result[1]).toContain("<");
   });
 
-  it("respects the limit parameter", () => {
+  it("returns at most the requested number of headlines", () => {
     const result = parseXmlTitles(SIMPLE_RSS, 2);
     expect(result).toHaveLength(2);
   });
 
-  it("returns empty array for feed with no items", () => {
+  it("returns an empty array when the feed has no items", () => {
     expect(parseXmlTitles(EMPTY_RSS, 5)).toEqual([]);
   });
 
-  it("skips titles shorter than 10 characters", () => {
+  it("skips titles shorter than 10 characters — too short to read on air", () => {
     const result = parseXmlTitles(SHORT_TITLES_RSS, 5);
     expect(result).toHaveLength(1);
     expect(result[0]).toBe("This is long enough to pass the filter");
   });
 
-  it("defaults limit to 5", () => {
-    // Build RSS with 10 items
+  it("defaults to returning 5 headlines when no limit is given", () => {
     const items = Array.from(
       { length: 10 },
-      (_, i) =>
-        `<item><title>Headline number ${i + 1} long enough</title></item>`,
+      (_, i) => `<item><title>Headline number ${i + 1} long enough</title></item>`,
     ).join("");
     const xml = `<rss><channel>${items}</channel></rss>`;
     expect(parseXmlTitles(xml)).toHaveLength(5);
   });
 
-  it("returns empty array for completely empty string", () => {
+  it("returns an empty array for a completely empty string", () => {
     expect(parseXmlTitles("", 5)).toEqual([]);
   });
 
-  it("handles multiline CDATA content", () => {
+  it("handles multiline CDATA content without breaking", () => {
     const xml = `<rss><channel><item><title><![CDATA[Line one
 line two breaking news here]]></title></item></channel></rss>`;
     const result = parseXmlTitles(xml, 5);

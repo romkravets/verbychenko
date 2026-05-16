@@ -98,7 +98,7 @@ export default function AnnouncementSplash({ announcement, onClose }: Props) {
           <div className="flex items-center gap-2 text-gray-500 text-xs font-mono">
             <span>▶▶</span>
             <span className="flex-1 border-t border-dashed border-gray-700" />
-            <span>Радіо Вербиченько</span>
+            <span>Радіо Вербиченька</span>
             <span className="flex-1 border-t border-dashed border-gray-700" />
             <span>◀◀</span>
           </div>

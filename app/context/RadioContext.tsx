@@ -48,7 +48,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   const start = useCallback(() => {
     setPlaying(true);
     setYtPlaying(true);
-    setPhase("starting");
+    setPhase("music");
     setCurrentLabel("🎵 Ефір розпочато...");
   }, []);
 

@@ -4,10 +4,7 @@ import { useRadio } from "@/app/context/RadioContext";
 import { CHANNELS, randomPhrase } from "@/lib/channels";
 import {
   buildInitialPlayedSet,
-  DISPLAY_SLOTS,
-  getCurrentDisplayKey,
   getDueSegment,
-  slotTime,
   type SegmentKey,
 } from "@/lib/schedule";
 import dynamic from "next/dynamic";
@@ -32,9 +29,7 @@ export default function PersistentRadioBar() {
   const radio = useRadio();
   const [isBusy, setIsBusy] = useState(false);
   const [splash, setSplash] = useState<FeaturedAnnouncement | null>(null);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [pendingSegment, setPendingSegment] = useState<SegmentKey | null>(null);
-  const [nowMinute, setNowMinute] = useState(() => new Date().getMinutes());
   const [trackTime, setTrackTime] = useState<{
     cur: number;
     dur: number;
@@ -54,12 +49,6 @@ export default function PersistentRadioBar() {
   useEffect(() => {
     busyRef.current = isBusy;
   }, [isBusy]);
-
-  // Update clock every 30 s (for schedule panel highlights)
-  useEffect(() => {
-    const id = setInterval(() => setNowMinute(new Date().getMinutes()), 30_000);
-    return () => clearInterval(id);
-  }, []);
 
   // Animate waveform — advances phase every 120 ms
   useEffect(() => {
@@ -144,7 +133,7 @@ export default function PersistentRadioBar() {
 
       radio.setLabel("💌 Програма знайомств");
       await playTTS(
-        "А зараз — програма знайомств Радіо Вербиченько! Слухайте листи наших слухачів.",
+        "А зараз — програма знайомств Радіо Вербиченька! Слухайте листи наших слухачів.",
       );
 
       radio.setLabel(`💌 Лист із міста ${ann1.city}`);
@@ -168,7 +157,7 @@ export default function PersistentRadioBar() {
       }
 
       await playTTS(
-        "Надсилайте свої листи на сайті Радіо Вербиченько. І пам'ятайте — кохання поруч!",
+        "Надсилайте свої листи на сайті Радіо Вербиченька. І пам'ятайте — кохання поруч!",
       );
     } catch {
       /* skip */
@@ -225,7 +214,7 @@ export default function PersistentRadioBar() {
         }
       }
 
-      await playTTS("Подавайте свої оголошення на сайті Радіо Вербиченько.");
+      await playTTS("Подавайте свої оголошення на сайті Радіо Вербиченька.");
     } catch {
       /* skip */
     } finally {
@@ -352,16 +341,11 @@ export default function PersistentRadioBar() {
   }[radio.phase];
 
   const isLive = radio.phase !== "idle";
-  const curDisplayKey = getCurrentDisplayKey(nowMinute);
 
   function fmt(sec: number) {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m}:${String(s).padStart(2, "0")}`;
-  }
-
-  function slotTimeNow(minute: number) {
-    return slotTime(new Date().getHours(), minute);
   }
 
   return (
@@ -388,98 +372,52 @@ export default function PersistentRadioBar() {
         onTimeUpdate={(cur, dur) => setTrackTime({ cur, dur })}
       />
 
-      {/* Schedule panel — appears above the bar */}
-      {scheduleOpen && (
-        <div className="fixed bottom-[52px] left-0 right-0 z-50 bg-amber-950 border-t border-amber-800 shadow-2xl">
-          <div className="max-w-4xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-amber-300 text-xs font-mono font-bold tracking-widest uppercase">
-                📅 Розклад ефіру (щогодини)
-              </span>
-              <button
-                onClick={() => setScheduleOpen(false)}
-                className="text-amber-600 hover:text-amber-300 text-xs"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {DISPLAY_SLOTS.map((slot) => {
-                const isActive = slot.key === curDisplayKey;
-                return (
-                  <div
-                    key={slot.key}
-                    className={`rounded px-2 py-1.5 border text-xs font-mono transition ${
-                      isActive
-                        ? "bg-amber-700 border-amber-500 text-amber-100"
-                        : "bg-amber-900 border-amber-800 text-amber-400"
-                    }`}
-                  >
-                    <div className="text-amber-500 text-[10px]">
-                      {slotTimeNow(slot.minute)}
-                    </div>
-                    <div className="font-semibold">
-                      {slot.emoji} {slot.label}
-                    </div>
-                    {isActive && (
-                      <div className="text-[10px] text-amber-400 animate-pulse mt-0.5">
-                        ● зараз в ефірі
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-amber-700 text-[10px] mt-2 font-mono">
-              Сегменти запускаються між піснями. Часи повторюються щогодини.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Sticky bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-amber-950 border-t-2 border-amber-700 shadow-2xl">
-        {/* Timeline — shown only when playing music and duration is known */}
+      {/* Sticky bottom bar — monopo saigon dark */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-md border-t border-white/10">
+        {/* Timeline */}
         {radio.playing &&
           trackTime &&
           trackTime.dur > 0 &&
           radio.phase === "music" && (
-            <div className="px-3 pt-1.5 pb-0">
+            <div className="px-4 pt-1.5 pb-0">
               <div className="flex items-center gap-2">
-                <span className="text-amber-600 text-[10px] font-mono w-8 text-right flex-shrink-0">
+                <span className="text-whisper-gray text-[10px] font-mono w-8 text-right shrink-0">
                   {fmt(trackTime.cur)}
                 </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={trackTime.dur}
-                  value={trackTime.cur}
-                  onChange={() => {
-                    /* read-only — YouTube IFrame seek is unreliable */
-                  }}
-                  className="flex-1 h-0.5 accent-amber-400 cursor-default"
-                  style={{ pointerEvents: "none" }}
-                />
-                <span className="text-amber-600 text-[10px] font-mono w-8 flex-shrink-0">
+                <div className="flex-1 h-px bg-white/10 relative">
+                  <div
+                    className="absolute inset-y-0 left-0 bg-white/40"
+                    style={{
+                      width:
+                        trackTime.dur > 0
+                          ? `${(trackTime.cur / trackTime.dur) * 100}%`
+                          : "0%",
+                      transition: "width 1s linear",
+                    }}
+                  />
+                </div>
+                <span className="text-whisper-gray text-[10px] font-mono w-8 shrink-0">
                   {fmt(trackTime.dur)}
                 </span>
               </div>
             </div>
           )}
-        <div className="max-w-4xl mx-auto px-3 py-2 flex items-center gap-3">
+
+        <div className="max-w-[1078px] mx-auto px-4 py-2.5 flex items-center gap-3">
           {/* Play/Stop */}
           <button
             onClick={radio.playing ? radio.stop : radio.start}
-            className="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold text-lg flex items-center justify-center flex-shrink-0 transition active:scale-95"
+            className="w-9 h-9 flex items-center justify-center border border-white/20 text-white hover:bg-white/10 text-base shrink-0 transition active:scale-95"
+            style={{ borderRadius: "75.024px" }}
           >
             {radio.playing ? "■" : "▶"}
           </button>
 
-          {/* Status dot + label */}
+          {/* Waveform + label */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs">{phaseColor}</span>
-              <span className="text-amber-200 text-xs font-mono truncate">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] opacity-60">{phaseColor}</span>
+              <span className="text-white text-[12px] font-mono truncate">
                 {isBusy ? (
                   <span className="animate-pulse">{radio.currentLabel}</span>
                 ) : (
@@ -488,20 +426,20 @@ export default function PersistentRadioBar() {
               </span>
             </div>
             {isLive && (
-              <div className="flex items-center gap-0.5 mt-0.5 overflow-hidden h-3">
+              <div className="flex items-end gap-[2px] h-3 overflow-hidden">
                 {Array.from({ length: 20 }).map((_, i) => {
                   const speed = 0.35 + (i % 5) * 0.07;
                   const offset = i * 0.42;
                   const amp = isBusy
                     ? 3 + Math.abs(Math.sin(wavePhase * speed + offset)) * 7
-                    : 1;
+                    : 1.5 +
+                      Math.abs(Math.sin(wavePhase * speed + offset)) * 2.5;
                   return (
                     <div
                       key={i}
-                      className="w-0.5 bg-amber-500 rounded-full flex-shrink-0"
+                      className="w-px bg-white/50 shrink-0"
                       style={{
                         height: `${amp}px`,
-                        opacity: 0.5 + (i % 4) * 0.12,
                         transition: "height 0.12s ease-in-out",
                       }}
                     />
@@ -509,6 +447,25 @@ export default function PersistentRadioBar() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Channel pills — hidden on mobile, shown sm+ */}
+          <div className="hidden sm:flex items-center gap-1">
+            {CHANNELS.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => radio.setChannel(ch.id)}
+                className={`text-[11px] font-mono px-2.5 py-0.5 border transition shrink-0 ${
+                  radio.channelId === ch.id
+                    ? "border-white/40 text-white bg-white/10"
+                    : "border-white/10 text-whisper-gray hover:text-white"
+                }`}
+                style={{ borderRadius: "75.024px" }}
+                title={ch.name}
+              >
+                {ch.emoji}
+              </button>
+            ))}
           </div>
 
           {/* Volume */}
@@ -522,48 +479,31 @@ export default function PersistentRadioBar() {
               radio.setVolume(v);
               radio.setYtVolume(v);
             }}
-            className="w-16 accent-amber-400 flex-shrink-0"
+            className="w-14 shrink-0 accent-white"
             title="Гучність"
           />
 
-          {/* Channel selector */}
-          <select
-            value={radio.channelId}
-            onChange={(e) => radio.setChannel(e.target.value)}
-            className="bg-amber-900 text-amber-200 text-xs rounded px-1 py-1 border border-amber-700 flex-shrink-0"
-          >
-            {CHANNELS.map((ch) => (
-              <option key={ch.id} value={ch.id}>
-                {ch.emoji} {ch.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Schedule toggle */}
-          <button
-            onClick={() => setScheduleOpen((v) => !v)}
-            className={`text-sm flex-shrink-0 transition ${
-              scheduleOpen
-                ? "text-amber-300"
-                : "text-amber-600 hover:text-amber-400"
-            }`}
+          {/* Schedule */}
+          <Link
+            href="/schedule"
+            className="text-whisper-gray hover:text-white text-sm shrink-0 transition"
             title="Розклад ефіру"
           >
             📅
-          </button>
+          </Link>
 
-          {/* Submit link */}
+          {/* Submit */}
           <Link
             href="/submit"
-            className="text-amber-400 hover:text-amber-300 text-xs font-mono flex-shrink-0 hidden sm:block"
+            className="text-whisper-gray hover:text-white text-[11px] font-mono shrink-0 hidden sm:block tracking-wide"
           >
             + оголошення
           </Link>
 
-          {/* Admin link */}
+          {/* Admin */}
           <Link
             href="/admin"
-            className="text-amber-700 hover:text-amber-500 text-xs flex-shrink-0"
+            className="text-whisper-gray hover:text-white text-[11px] shrink-0"
             title="Адмін"
           >
             ⚙️
