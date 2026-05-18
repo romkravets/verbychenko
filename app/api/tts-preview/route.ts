@@ -1,10 +1,21 @@
+import { getIp, rateLimit } from "@/lib/rate-limit";
+import { textToSpeech } from "@/lib/tts";
 import { NextRequest, NextResponse } from "next/server";
-import { textToSpeech, wrapWithHostIntro } from "@/lib/tts";
 
 // Max text length to prevent DoS via very long TTS requests
 const MAX_TEXT_LENGTH = 1000;
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 10 previews per IP per 5 minutes
+  const ip = getIp(req);
+  const rl = rateLimit(`tts-preview:${ip}`, 10, 5 * 60 * 1000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Забагато запитів. Зачекайте кілька хвилин." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const body = await req.json();
   const { text } = body as { text?: string };
 

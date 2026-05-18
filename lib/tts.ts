@@ -1,38 +1,48 @@
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { readFile, unlink } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
-
-const execFileAsync = promisify(execFile);
-const VOICE = "uk-UA-PolinaNeural";
+const VOICE = "uk-UA-Wavenet-A";
 
 function preprocessForSpeech(text: string): string {
   return text
-    // Normalize ellipsis spacing for natural long pause
     .replace(/\.\.\.\s*/g, "... ")
-    // Em dash always breathes with spaces
     .replace(/\s*—\s*/g, " — ")
-    // Ensure sentence-ending punctuation has a single space after
     .replace(/([.!?])\s{2,}/g, "$1 ")
     .trim();
 }
 
 export async function textToSpeech(text: string): Promise<Buffer> {
-  const tmpFile = join(tmpdir(), `tts-${Date.now()}.mp3`);
+  const apiKey = process.env.GOOGLE_TTS_API_KEY;
+  if (!apiKey) throw new Error("GOOGLE_TTS_API_KEY not set");
+
   const processedText = preprocessForSpeech(text);
 
-  await execFileAsync("edge-tts", [
-    "--voice", VOICE,
-    "--rate", process.env.TTS_RATE ?? "-5%",
-    "--pitch", process.env.TTS_PITCH ?? "+3Hz",
-    "--text", processedText,
-    "--write-media", tmpFile,
-  ]);
+  // speaking_rate: 0.75–1.0 (slower = more dramatic), pitch: -5.0 to +5.0
+  const speakingRate = parseFloat(process.env.TTS_RATE ?? "0.85");
+  const pitch = parseFloat(process.env.TTS_PITCH ?? "0.0");
 
-  const buffer = await readFile(tmpFile);
-  await unlink(tmpFile).catch(() => {});
-  return buffer;
+  const res = await fetch(
+    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { text: processedText },
+        voice: { languageCode: "uk-UA", name: VOICE },
+        audioConfig: {
+          audioEncoding: "MP3",
+          speakingRate,
+          pitch,
+          sampleRateHertz: 24000,
+        },
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(`Google TTS error ${res.status}: ${msg}`);
+  }
+
+  const data = (await res.json()) as { audioContent: string };
+  return Buffer.from(data.audioContent, "base64");
 }
 
 // hostIntro — LLM-generated warm intro phrase (from generateHostLetterIntro)
