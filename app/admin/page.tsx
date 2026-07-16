@@ -20,7 +20,6 @@ type Announcement = {
 type NewsHeadline = { headline?: string; error?: string };
 
 export default function AdminPage() {
-  const [secret, setSecret] = useState("");
   const [inputSecret, setInputSecret] = useState("");
   const [authed, setAuthed] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -68,7 +67,6 @@ export default function AdminPage() {
 
   const handleLogin = () => {
     secretRef.current = inputSecret;
-    setSecret(inputSecret);
     sessionStorage.setItem(SECRET_KEY, inputSecret);
     setAuthed(true);
     loadAnnouncements();

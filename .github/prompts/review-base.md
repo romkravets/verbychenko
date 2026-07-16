@@ -47,6 +47,20 @@ You are reviewing a pull request. This base prompt provides reusable code review
 
 ## Core Review Principles
 
+### General Verification Checklist (applies to every PR)
+
+Before approving, verify the following in changed files:
+
+1. **Input validation exists** for external/user input (HTTP body, query, headers, env-based branching)
+2. **Error paths are explicit** (no silent catch blocks, no swallowed failures)
+3. **Secrets are never exposed** (logs, responses, committed files)
+4. **Concurrency/race risks are handled** when writing shared state or queue/order data
+5. **Resource cleanup exists** for allocated resources (timers, object URLs, streams, sockets)
+6. **Backward compatibility is preserved** for existing API contracts unless PR explicitly changes them
+7. **Docs/config are updated** when new env vars, flags, or runtime dependencies are introduced
+
+If any checklist item fails and impacts reliability/security, report it under CRITICAL or HIGH.
+
 ### Focus Areas (Priority Order)
 
 1. **Security** - Vulnerabilities, exposed secrets, injection flaws

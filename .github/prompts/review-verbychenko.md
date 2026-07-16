@@ -9,11 +9,11 @@ This overlay defines all project-specific rules, patterns, and invariants.
 
 ## Repository Context
 
-- **Purpose**: Ukrainian radio dating show simulator — users submit announcements, AI (Claude/Groq) generates radio-style text, edge-tts renders audio, Supabase stores MP3s, radio player streams the queue with background music
+- **Purpose**: Ukrainian radio dating show simulator — users submit announcements, AI (Claude/Groq) generates radio-style text, TTS renders audio, Supabase stores MP3s, radio player streams the queue with background music
 - **Stack**:
   - Framework: Next.js 16 (App Router), TypeScript strict
   - Database: PostgreSQL via Prisma 7 (adapter-pg)
-  - AI: Anthropic Claude Haiku or Groq Llama (LLM), edge-tts Python CLI (TTS)
+  - AI: Anthropic Claude Haiku or Groq Llama (LLM), Google TTS HTTP API + optional Voicebox endpoint (TTS)
   - Storage: Supabase Storage (audio bucket) — requires `SUPABASE_SERVICE_ROLE_KEY` (not publishable key)
   - Secondary storage: Cloudflare R2 (`lib/r2.ts`) — available but not default
   - Telegram: moderation bot (Phase 3)
@@ -27,14 +27,14 @@ app/
   submit/page.tsx       — Announcement submission form (3-step: form → preview → done)
   api/
     announce/route.ts   — POST: validate → LLM generate → Prisma save (PENDING status)
-    tts-preview/route.ts — POST: text → edge-tts → returns audio/mpeg blob (no storage)
+    tts-preview/route.ts — POST: text → TTS → returns audio/mpeg blob (no storage)
     tts-test/route.ts   — GET: dev smoke test (TTS + Supabase upload)
     moderate/route.ts   — POST: Telegram webhook (approve/reject announcements)
     queue/route.ts       — GET: next unplayed queue item for radio player
     episode/build/      — POST: build episode from approved announcements
 
 lib/
-  tts.ts               — textToSpeech(text): execFileAsync("edge-tts"), reads output file, returns Buffer
+  tts.ts               — textToSpeech(text, opts): provider switch + fallback, returns Buffer
   storage.ts           — uploadAudio(filename, buffer): Supabase Storage (REQUIRES service role key)
   r2.ts                — uploadAudio(key, buffer): Cloudflare R2 alternative
   llm.ts               — generateAnnouncement(userData): Claude Haiku or Groq Llama-3.3-70b
@@ -47,10 +47,12 @@ prisma/schema.prisma   — Announcement, Episode, QueueItem models
 
 #### TTS execution
 
-- `edge-tts` Python CLI (v7.2.8+) must be installed: `pip install edge-tts`
-- Voice: `uk-UA-PolinaNeural` — NEVER change without stakeholder approval
-- After `execFileAsync("edge-tts", ["--write-media", path, ...])`, the file IS at `path` (not a subdirectory)
-- NEVER use `msedge-tts` npm package — it creates directory structure and fails in Node.js environment
+- Primary TTS is Google Cloud Text-to-Speech via HTTP (`GOOGLE_TTS_API_KEY`)
+- Optional provider: Voicebox over HTTP (`VOICEBOX_TTS_URL`)
+- Supported providers: `google | voicebox` (`TTS_PROVIDER`)
+- Optional fallback provider: `TTS_FALLBACK_PROVIDER`
+- Supported profiles: `classic | natural | warm` (`TTS_PROFILE`)
+- `tts-preview` provider/profile inputs must be allowlisted and validated server-side
 
 #### Supabase Storage
 
@@ -90,21 +92,21 @@ PENDING → APPROVED → in Episode (QueueItem) → PLAYED
 
 1. **Wrong Supabase key** — if `SUPABASE_SERVICE_ROLE_KEY` is assigned value of `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, flag immediately. Uploadswill silently fail with RLS error.
 
-2. **msedge-tts npm usage** — if any code imports from `msedge-tts`, flag as critical regression. Use `edge-tts` CLI only.
+2. **Unsafe TTS provider input** — if route accepts arbitrary provider/profile without server-side allowlist validation, flag as critical.
 
-3. **TTS output path** — `--write-media` must point to a `.mp3` file path. Never use the path as a directory to look for `audio.mp3` inside.
+3. **Missing TTS credentials/endpoint guards** — if provider selection can reach Google/Voicebox without explicit env checks and deterministic error handling, flag as critical.
 
 4. **LLM prompt injection** — `formatUserInput()` concatenates unsanitized user input into prompts. New fields must also be sanitized/escaped before use in prompts. Strip control characters.
 
 ### 🟡 WARNINGS
 
-5. **Unhandled TTS errors** — `textToSpeech()` must have try/catch at call sites. TTS failure should not crash the request.
+5. **Unhandled TTS errors** — `textToSpeech()` must have try/catch at call sites. TTS failure should return controlled JSON errors.
 
 6. **Missing `audioEl.pause()` on navigation** — `HTMLAudioElement` instances created in submit preview must be paused/destroyed when navigating away (step change).
 
 7. **Queue race condition** — `queue/route.ts` marks items as played immediately. If client never actually plays the audio, it's marked played. Consider a heartbeat/confirm play endpoint.
 
-8. **Missing rate limiting** — `/api/announce` and `/api/tts-preview` have no rate limiting. Add IP-based rate limiter before production.
+8. **Missing rate limiting** — `/api/announce` and `/api/tts-preview` should have IP-based rate limiting.
 
 ### 🔵 STYLE / PATTERNS
 
@@ -133,4 +135,4 @@ PENDING → APPROVED → in Episode (QueueItem) → PLAYED
 - Episode builder `app/api/episode/build/` is empty — Phase 2 work in progress
 - Music/crossfade system — planned, not yet implemented
 - Telegram bot webhook — skeleton only, `TODO: Фаза 3` in code
-- No rate limiting on `/api/announce` or `/api/tts-preview`
+- `/api/announce` may still need stricter rate limiting in production

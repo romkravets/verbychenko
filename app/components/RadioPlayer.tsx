@@ -78,7 +78,7 @@ export default function RadioPlayer({
       );
       if (step >= MUSIC_FADE_STEPS) clearInterval(interval);
     }, MUSIC_FADE_INTERVAL_MS);
-  }, []);
+  }, [useYouTube]);
 
   const playNextAnnouncement = useCallback(async () => {
     if (!episodeId || !isActiveRef.current) return;
@@ -239,7 +239,15 @@ export default function RadioPlayer({
       setCurrentText("📻 Ефір розпочато...");
       if (episodeId) playNextAnnouncement();
     }
-  }, [state, musicUrl, episodeId, fadeMusicTo, playNextAnnouncement]);
+  }, [
+    state,
+    musicUrl,
+    episodeId,
+    fadeMusicTo,
+    playNextAnnouncement,
+    selectedChannelId,
+    useYouTube,
+  ]);
 
   const stopRadio = useCallback(() => {
     isActiveRef.current = false;
@@ -294,7 +302,7 @@ export default function RadioPlayer({
         <span className="text-base mt-0.5">⚠️</span>
         <span>
           Наш ефір <strong>не транслює</strong> музику Росії та Білорусі —
-          країн-агресорів, що розв'язали збройну агресію проти України. Тільки
+          країн-агресорів, що розв&#39;язали збройну агресію проти України. Тільки
           українська та світова музика.
         </span>
       </div>

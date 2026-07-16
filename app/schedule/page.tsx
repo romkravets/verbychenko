@@ -94,10 +94,6 @@ export default function SchedulePage() {
   // Progress through the current hour (0–100)
   const hourProgress = Math.round((m / 59) * 100);
 
-  // Show 5 hours: 2 before, current, 2 after
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const visibleHours = hours.slice(Math.max(0, h - 2), Math.min(24, h + 3));
-
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-[1078px] mx-auto px-6 pt-10 pb-32">

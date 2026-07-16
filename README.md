@@ -9,7 +9,7 @@
 
 - **Next.js 16** (App Router) + TypeScript
 - **Prisma 7** + PostgreSQL (Supabase)
-- **edge-tts** (Microsoft Neural Voice) — синтез мови через Python CLI
+- **Google Cloud TTS** + опційно **Voicebox** (HTTP endpoint) — синтез мови
 - **YouTube IFrame API** — програвання музики
 - **Groq** (`llama-3.3-70b-versatile`) або **Anthropic Claude** (`claude-haiku-4-5-20251001`)
 
@@ -20,7 +20,6 @@
 ### 1. Вимоги
 
 - Node.js 20+
-- Python 3 + `pip install edge-tts`
 - PostgreSQL або Supabase
 
 ### 2. Встановлення
@@ -44,6 +43,13 @@ DIRECT_URL=postgresql://user:pass@host:5432/db
 GROQ_API_KEY=gsk_...
 ANTHROPIC_API_KEY=sk-ant-...
 AI_PROVIDER=groq           # або: claude
+
+# TTS
+GOOGLE_TTS_API_KEY=...
+TTS_PROVIDER=google        # google | voicebox
+TTS_PROFILE=natural        # classic | natural | warm
+TTS_FALLBACK_PROVIDER=     # опційно: google | voicebox
+VOICEBOX_TTS_URL=          # опційно, якщо TTS_PROVIDER=voicebox
 
 # Supabase Storage (для збереження MP3)
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
@@ -114,7 +120,7 @@ npm run dev
 ШІ пише теплий текст у стилі радіооголошення 90-х.
 
 **Попередній перегляд:**
-Після генерації тексту з'являється кнопка «Прослухати» — відтворює TTS прямо в браузері (без збереження аудіо).
+Після генерації тексту з'являється кнопка «Прослухати» — відтворює TTS прямо в браузері (без збереження аудіо). У preview можна обрати движок озвучення (Google або Voicebox) та профіль голосу.
 
 **Після підтвердження:** оголошення зберігається зі статусом `PENDING` та чекає на підтвердження адміна.
 
@@ -129,7 +135,7 @@ npm run dev
 3. [Суспільне](https://suspilne.media/rss/all.xml)
 
 Заголовок кешується **10 хвилин**, щоб не спамити RSS-сервери.
-Перед відтворенням Тамара говорить: _«Увага — новини! [заголовок]»_ (edge-tts).
+Перед відтворенням Тамара говорить: _«Увага — новини! [заголовок]»_ (TTS).
 
 Ендпоїнт: `GET /api/rss-news` → `{ headline: string }`
 
@@ -262,7 +268,7 @@ app/
 lib/
   channels.ts                  # Визначення музичних каналів
   llm.ts                       # ШІ-генерація тексту (Groq / Claude)
-  tts.ts                       # edge-tts Python CLI обгортка
+  tts.ts                       # TTS provider switch (Google / Voicebox)
   storage.ts                   # Supabase Storage (збереження MP3)
   db.ts                        # Prisma singleton
 
@@ -272,13 +278,12 @@ prisma/
 
 ---
 
-## Налаштування edge-tts
+## Налаштування TTS
 
-```bash
-pip install edge-tts
-```
+За замовчуванням використовується Google TTS (`TTS_PROVIDER=google`).
 
-Голос: `uk-UA-PolinaNeural` — українська жіноча нейромережа від Microsoft.
+Якщо хочеш тестувати Voicebox паралельно, задай `TTS_PROVIDER=voicebox`
+і `VOICEBOX_TTS_URL` (HTTP endpoint, що повертає `audio/mpeg` або JSON з `audioContent`).
 
 Smoke-тест: `curl http://localhost:3000/api/tts-test`
 
@@ -304,7 +309,7 @@ npx prisma studio        # GUI для БД
 1. Push на GitHub
 2. Підключи репозиторій у [vercel.com](https://vercel.com)
 3. Додай всі змінні з `.env.local` у налаштуваннях Vercel
-4. `edge-tts` потребує Python — для продакшну розглянь власний сервер або Railway
+4. Для Voicebox потрібен окремий endpoint/сервіс; Google TTS працює напряму на Vercel
 
 > **Порада:** SQLite не підходить для Vercel (serverless). PostgreSQL через Supabase — оптимальний вибір.
 

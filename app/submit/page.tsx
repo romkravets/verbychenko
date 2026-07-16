@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Step = "form" | "preview" | "done";
 type AnnouncementType = "DATING" | "COMMERCIAL";
 type AudioState = "idle" | "loading" | "playing" | "error";
+type TtsProvider = "google" | "voicebox";
+type TtsProfile = "classic" | "natural" | "warm";
 
 interface DatingForm {
   name: string;
@@ -70,6 +72,16 @@ export default function SubmitPage() {
   const [sendError, setSendError] = useState("");
   const [audioState, setAudioState] = useState<AudioState>("idle");
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [ttsProvider, setTtsProvider] = useState<TtsProvider>("google");
+  const [ttsProfile, setTtsProfile] = useState<TtsProfile>("natural");
+
+  useEffect(() => {
+    return () => {
+      if (audioEl) audioEl.pause();
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [audioEl, previewUrl]);
 
   function handleDatingChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -88,16 +100,25 @@ export default function SubmitPage() {
       audioEl.pause();
       audioEl.currentTime = 0;
     }
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     setAudioState("loading");
     try {
       const res = await fetch("/api/tts-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: aiText }),
+        body: JSON.stringify({
+          text: aiText,
+          provider: ttsProvider,
+          profile: ttsProfile,
+        }),
       });
       if (!res.ok) throw new Error("TTS error");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
       const audio = new Audio(url);
       setAudioEl(audio);
       audio.onended = () => setAudioState("idle");
@@ -267,6 +288,34 @@ export default function SubmitPage() {
           </div>
 
           {/* Audio preview */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <label className="text-[11px] font-mono tracking-wide text-whisper-gray">
+              Движок озвучення
+              <select
+                value={ttsProvider}
+                onChange={(e) => setTtsProvider(e.target.value as TtsProvider)}
+                className="mt-1.5 w-full px-3 py-2.5 bg-white/5 border border-white/10 text-white focus:outline-none focus:border-white/30"
+              >
+                <option value="google">Google TTS</option>
+                <option value="voicebox">Voicebox (external)</option>
+              </select>
+            </label>
+
+            <label className="text-[11px] font-mono tracking-wide text-whisper-gray">
+              Профіль голосу
+              <select
+                value={ttsProfile}
+                onChange={(e) => setTtsProfile(e.target.value as TtsProfile)}
+                disabled={ttsProvider === "voicebox"}
+                className="mt-1.5 w-full px-3 py-2.5 bg-white/5 border border-white/10 text-white focus:outline-none focus:border-white/30 disabled:opacity-40"
+              >
+                <option value="classic">Classic</option>
+                <option value="natural">Natural</option>
+                <option value="warm">Warm</option>
+              </select>
+            </label>
+          </div>
+
           <button
             onClick={playPreview}
             disabled={audioState === "loading"}
@@ -365,7 +414,7 @@ export default function SubmitPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Ваше ім'я</label>
+                  <label className={labelCls}>Ваше ім&#39;я</label>
                   <input
                     name="name"
                     value={commercial.name}
@@ -444,7 +493,7 @@ export default function SubmitPage() {
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Ім'я *</label>
+                  <label className={labelCls}>Ім&#39;я *</label>
                   <input
                     name="name"
                     value={dating.name}
