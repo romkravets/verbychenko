@@ -1,5 +1,5 @@
-import { db } from "@/lib/db";
 import { CHANNELS } from "@/lib/channels";
+import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
 function requireSecret(req: NextRequest) {
@@ -10,7 +10,11 @@ function requireSecret(req: NextRequest) {
 }
 
 function parseList(value: unknown): string[] {
-  if (Array.isArray(value)) return value.map(String).map((s) => s.trim()).filter(Boolean);
+  if (Array.isArray(value))
+    return value
+      .map(String)
+      .map((s) => s.trim())
+      .filter(Boolean);
   return String(value || "")
     .split(",")
     .map((s) => s.trim())
@@ -73,7 +77,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const maxSort = await db.radioChannel.aggregate({ _max: { sortOrder: true } });
+    const maxSort = await db.radioChannel.aggregate({
+      _max: { sortOrder: true },
+    });
     const created = await db.radioChannel.create({
       data: {
         name,
@@ -124,9 +130,11 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.isActive === "boolean") data.isActive = body.isActive;
     if (typeof body.sortOrder === "number") data.sortOrder = body.sortOrder;
     if (typeof body.name === "string") data.name = body.name.trim();
-    if (typeof body.description === "string") data.description = body.description.trim();
+    if (typeof body.description === "string")
+      data.description = body.description.trim();
     if (typeof body.emoji === "string") data.emoji = body.emoji.trim() || "🎵";
-    if (body.playlistIds !== undefined) data.playlistIds = parseList(body.playlistIds);
+    if (body.playlistIds !== undefined)
+      data.playlistIds = parseList(body.playlistIds);
     if (body.videoIds !== undefined) data.videoIds = parseList(body.videoIds);
 
     const updated = await db.radioChannel.update({ where: { id }, data });

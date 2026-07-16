@@ -1,9 +1,11 @@
-import { db } from "@/lib/db";
 import { CHANNELS, type Channel } from "@/lib/channels";
+import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
 function fallbackChannels(): Channel[] {
-  return CHANNELS.filter((c) => c.playlistIds.length > 0 || c.videoIds.length > 0);
+  return CHANNELS.filter(
+    (c) => c.playlistIds.length > 0 || c.videoIds.length > 0,
+  );
 }
 
 export async function GET() {

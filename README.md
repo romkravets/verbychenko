@@ -96,20 +96,20 @@ Public channel endpoint used by player:
 
 ### API Endpoints
 
-| Method | URL | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/announce` | Submit announcement (DATING/COMMERCIAL) |
-| `GET` | `/api/announce/featured` | Random approved announcement |
-| `POST` | `/api/tts-preview` | Text -> audio blob (no storage) |
-| `GET` | `/api/rss-news` | RSS headline |
-| `GET` | `/api/queue` | Next queue item for radio |
-| `GET` | `/api/channels` | Active radio channels for player |
-| `GET` | `/api/admin/announcements` | Admin list |
-| `PATCH` | `/api/admin/announcements` | Approve/reject |
-| `GET` | `/api/admin/channels` | Admin channels list |
-| `POST` | `/api/admin/channels` | Add channel |
-| `PATCH` | `/api/admin/channels` | Toggle/update/delete channel |
-| `GET` | `/api/tts-test` | TTS smoke test |
+| Method  | URL                        | Purpose                                 |
+| ------- | -------------------------- | --------------------------------------- |
+| `POST`  | `/api/announce`            | Submit announcement (DATING/COMMERCIAL) |
+| `GET`   | `/api/announce/featured`   | Random approved announcement            |
+| `POST`  | `/api/tts-preview`         | Text -> audio blob (no storage)         |
+| `GET`   | `/api/rss-news`            | RSS headline                            |
+| `GET`   | `/api/queue`               | Next queue item for radio               |
+| `GET`   | `/api/channels`            | Active radio channels for player        |
+| `GET`   | `/api/admin/announcements` | Admin list                              |
+| `PATCH` | `/api/admin/announcements` | Approve/reject                          |
+| `GET`   | `/api/admin/channels`      | Admin channels list                     |
+| `POST`  | `/api/admin/channels`      | Add channel                             |
+| `PATCH` | `/api/admin/channels`      | Toggle/update/delete channel            |
+| `GET`   | `/api/tts-test`            | TTS smoke test                          |
 
 ### Commands
 
@@ -228,20 +228,20 @@ npm run dev
 
 ### API-ендпоїнти
 
-| Метод | URL | Призначення |
-| --- | --- | --- |
-| `POST` | `/api/announce` | Подати оголошення (DATING/COMMERCIAL) |
-| `GET` | `/api/announce/featured` | Випадкове підтверджене оголошення |
-| `POST` | `/api/tts-preview` | Текст -> аудіо blob (без збереження) |
-| `GET` | `/api/rss-news` | Новинний заголовок RSS |
-| `GET` | `/api/queue` | Наступний елемент черги |
-| `GET` | `/api/channels` | Активні канали для плеєра |
-| `GET` | `/api/admin/announcements` | Список оголошень (адмін) |
-| `PATCH` | `/api/admin/announcements` | Схвалити/відхилити |
-| `GET` | `/api/admin/channels` | Список каналів (адмін) |
-| `POST` | `/api/admin/channels` | Додати канал |
-| `PATCH` | `/api/admin/channels` | Увімкнути/оновити/видалити канал |
-| `GET` | `/api/tts-test` | Smoke-тест TTS |
+| Метод   | URL                        | Призначення                           |
+| ------- | -------------------------- | ------------------------------------- |
+| `POST`  | `/api/announce`            | Подати оголошення (DATING/COMMERCIAL) |
+| `GET`   | `/api/announce/featured`   | Випадкове підтверджене оголошення     |
+| `POST`  | `/api/tts-preview`         | Текст -> аудіо blob (без збереження)  |
+| `GET`   | `/api/rss-news`            | Новинний заголовок RSS                |
+| `GET`   | `/api/queue`               | Наступний елемент черги               |
+| `GET`   | `/api/channels`            | Активні канали для плеєра             |
+| `GET`   | `/api/admin/announcements` | Список оголошень (адмін)              |
+| `PATCH` | `/api/admin/announcements` | Схвалити/відхилити                    |
+| `GET`   | `/api/admin/channels`      | Список каналів (адмін)                |
+| `POST`  | `/api/admin/channels`      | Додати канал                          |
+| `PATCH` | `/api/admin/channels`      | Увімкнути/оновити/видалити канал      |
+| `GET`   | `/api/tts-test`            | Smoke-тест TTS                        |
 
 ### Команди
 

@@ -39,7 +39,9 @@ export default function AdminPage() {
   const [channelLoading, setChannelLoading] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelEmoji, setNewChannelEmoji] = useState("🎵");
-  const [newChannelCountry, setNewChannelCountry] = useState<"UA" | "WORLD">("UA");
+  const [newChannelCountry, setNewChannelCountry] = useState<"UA" | "WORLD">(
+    "UA",
+  );
   const [newChannelDescription, setNewChannelDescription] = useState("");
   const [newChannelPlaylists, setNewChannelPlaylists] = useState("");
   const [newChannelVideos, setNewChannelVideos] = useState("");
@@ -164,7 +166,9 @@ export default function AdminPage() {
       return;
     }
 
-    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, isActive } : c)));
+    setChannels((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, isActive } : c)),
+    );
   };
 
   const handleDeleteChannel = async (id: string) => {
@@ -421,7 +425,9 @@ export default function AdminPage() {
 
           <div className="mt-4 space-y-2">
             {channelLoading && (
-              <p className="text-[#6d6d6d] text-[12px]">Завантаження каналів...</p>
+              <p className="text-[#6d6d6d] text-[12px]">
+                Завантаження каналів...
+              </p>
             )}
             {!channelLoading && channels.length === 0 && (
               <p className="text-[#6d6d6d] text-[12px]">Канали не знайдено</p>
@@ -439,7 +445,8 @@ export default function AdminPage() {
                       {c.emoji} {c.name} · {c.country}
                     </p>
                     <p className="text-[#6d6d6d] text-[11px] truncate">
-                      playlist: {c.playlistIds.length} · videos: {c.videoIds.length}
+                      playlist: {c.playlistIds.length} · videos:{" "}
+                      {c.videoIds.length}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

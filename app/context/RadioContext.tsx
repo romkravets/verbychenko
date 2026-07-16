@@ -1,18 +1,31 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { CHANNELS, type Channel } from "@/lib/channels";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-export type RadioPhase = "idle" | "starting" | "music" | "insert" | "news" | "announcement";
+export type RadioPhase =
+  | "idle"
+  | "starting"
+  | "music"
+  | "insert"
+  | "news"
+  | "announcement";
 
 export interface RadioContextValue {
   channels: Channel[];
   playing: boolean;
   phase: RadioPhase;
   channelId: string;
-  volume: number;          // 0-100
+  volume: number; // 0-100
   currentLabel: string;
   ytPlaying: boolean;
-  ytVolume: number;        // 0-100
+  ytVolume: number; // 0-100
   start: () => void;
   stop: () => void;
   setChannel: (id: string) => void;
@@ -39,7 +52,9 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<RadioPhase>("idle");
   const [channelId, setChannelId] = useState(CHANNELS[0].id);
   const [volume, setVolume] = useState(35);
-  const [currentLabel, setCurrentLabel] = useState("Натисніть ▶ щоб розпочати ефір");
+  const [currentLabel, setCurrentLabel] = useState(
+    "Натисніть ▶ щоб розпочати ефір",
+  );
   const [ytPlaying, setYtPlaying] = useState(false);
   const [ytVolume, setYtVolume] = useState(35);
 
@@ -55,7 +70,11 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch("/api/channels", { cache: "no-store" });
         if (!res.ok) return;
         const data = (await res.json()) as { channels?: Channel[] };
-        if (!cancelled && Array.isArray(data.channels) && data.channels.length) {
+        if (
+          !cancelled &&
+          Array.isArray(data.channels) &&
+          data.channels.length
+        ) {
           const nextChannels = data.channels;
           setChannels(nextChannels);
           setChannelId((prev) =>
@@ -87,23 +106,40 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     setCurrentLabel("Натисніть ▶ щоб розпочати ефір");
   }, []);
 
-  const setChannel = useCallback((id: string) => {
-    const ch = channels.find((c: Channel) => c.id === id);
-    if (!ch) return;
-    setChannelId(id);
-  }, [channels]);
+  const setChannel = useCallback(
+    (id: string) => {
+      const ch = channels.find((c: Channel) => c.id === id);
+      if (!ch) return;
+      setChannelId(id);
+    },
+    [channels],
+  );
 
   const setLabel = useCallback((t: string) => setCurrentLabel(t), []);
 
   return (
-    <RadioContext.Provider value={{
-      channels,
-      playing, phase, channelId, volume, currentLabel,
-      ytPlaying, ytVolume,
-      start, stop, setChannel, setVolume: (v) => setVolume(v),
-      setLabel, setPhase, setYtPlaying, setYtVolume,
-      onTrackChange, onReady,
-    }}>
+    <RadioContext.Provider
+      value={{
+        channels,
+        playing,
+        phase,
+        channelId,
+        volume,
+        currentLabel,
+        ytPlaying,
+        ytVolume,
+        start,
+        stop,
+        setChannel,
+        setVolume: (v) => setVolume(v),
+        setLabel,
+        setPhase,
+        setYtPlaying,
+        setYtVolume,
+        onTrackChange,
+        onReady,
+      }}
+    >
       {children}
     </RadioContext.Provider>
   );
