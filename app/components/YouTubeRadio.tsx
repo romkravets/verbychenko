@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type Channel,
   channelFirstVideo,
   channelPickPlaylist,
   channelPlaylist,
@@ -38,6 +39,7 @@ interface Props {
   playing: boolean;
   volume: number;
   channelId?: string;
+  channels?: Channel[];
   onReady?: () => void;
   onTrackChange?: () => void;
   /** Called every second while playing: (currentSec, durationSec) */
@@ -48,10 +50,13 @@ export default function YouTubeRadio({
   playing,
   volume,
   channelId,
+  channels,
   onReady,
   onTrackChange,
   onTimeUpdate,
 }: Props) {
+  const sourceChannels = channels?.length ? channels : CHANNELS;
+  const channelsRef = useRef(sourceChannels);
   const playerRef = useRef<YoutubePlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
@@ -85,6 +90,9 @@ export default function YouTubeRadio({
   useEffect(() => {
     channelIdRef.current = channelId;
   }, [channelId]);
+  useEffect(() => {
+    channelsRef.current = sourceChannels;
+  }, [sourceChannels]);
 
   useEffect(() => {
     if (!readyRef.current || !playerRef.current) return;
@@ -110,8 +118,10 @@ export default function YouTubeRadio({
 
   const initPlayer = useCallback(() => {
     if (!containerRef.current || playerRef.current) return;
+    const localChannels = channelsRef.current;
     const ch =
-      CHANNELS.find((c) => c.id === channelIdRef.current) ?? CHANNELS[0];
+      localChannels.find((c) => c.id === channelIdRef.current) ??
+      localChannels[0];
 
     const pid = channelPickPlaylist(ch);
 
@@ -149,7 +159,7 @@ export default function YouTubeRadio({
           // Restore saved position from localStorage
           try {
             const saved = localStorage.getItem(
-              posKey(channelIdRef.current ?? CHANNELS[0].id),
+              posKey(channelIdRef.current ?? localChannels[0].id),
             );
             if (saved) {
               const { index, time } = JSON.parse(saved) as {
@@ -196,7 +206,7 @@ export default function YouTubeRadio({
             try {
               const idx = playerRef.current.getPlaylistIndex();
               const t = Math.floor(playerRef.current.getCurrentTime());
-              const ch = channelIdRef.current ?? CHANNELS[0].id;
+              const ch = channelIdRef.current ?? localChannels[0].id;
               localStorage.setItem(
                 posKey(ch),
                 JSON.stringify({ index: idx, time: t }),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRadio } from "@/app/context/RadioContext";
-import { CHANNELS, randomPhrase } from "@/lib/channels";
+import { randomPhrase } from "@/lib/channels";
 import {
   buildInitialPlayedSet,
   getDueSegment,
@@ -325,7 +325,9 @@ export default function PersistentRadioBar() {
   useEffect(() => {
     radio.onReady.current = () => {
       radio.setPhase("music");
-      const ch = CHANNELS.find((c) => c.id === radio.channelId) ?? CHANNELS[0];
+      const ch =
+        radio.channels.find((c) => c.id === radio.channelId) ??
+        radio.channels[0];
       radio.setLabel(`🎵 Канал: ${ch.emoji} ${ch.name}`);
     };
   }, [radio]);
@@ -360,10 +362,11 @@ export default function PersistentRadioBar() {
 
       {/* Hidden YouTube player — always mounted so position is preserved on stop/play */}
       <YouTubeRadio
-        key={radio.channelId}
+        key={`${radio.channelId}:${radio.channels.length}`}
         playing={radio.ytPlaying && radio.playing}
         volume={radio.ytVolume}
         channelId={radio.channelId}
+        channels={radio.channels}
         onReady={() => radio.onReady.current?.()}
         onTrackChange={() => {
           setTrackTime(null);
@@ -451,7 +454,7 @@ export default function PersistentRadioBar() {
 
           {/* Channel pills — hidden on mobile, shown sm+ */}
           <div className="hidden sm:flex items-center gap-1">
-            {CHANNELS.map((ch) => (
+            {radio.channels.map((ch) => (
               <button
                 key={ch.id}
                 onClick={() => radio.setChannel(ch.id)}

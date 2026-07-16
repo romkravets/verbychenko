@@ -82,6 +82,22 @@ model YoutubeVideo {
   @@map("youtube_videos")
 }
 
+model RadioChannel {
+  id          String         @id @default(cuid())
+  name        String
+  emoji       String         @default("🎵")
+  description String         @default("")
+  country     ChannelCountry @default(UA)
+  playlistIds String[]
+  videoIds    String[]
+  isActive    Boolean        @default(true)
+  sortOrder   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("radio_channels")
+}
+
 enum AnnouncementStatus {
   PENDING
   APPROVED
@@ -106,4 +122,9 @@ enum QueueType {
   INTRO
   OUTRO
   NEWS
+}
+
+enum ChannelCountry {
+  UA
+  WORLD
 }

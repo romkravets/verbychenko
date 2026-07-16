@@ -19,11 +19,30 @@ type Announcement = {
 
 type NewsHeadline = { headline?: string; error?: string };
 
+type AdminChannel = {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  country: "UA" | "WORLD";
+  playlistIds: string[];
+  videoIds: string[];
+  isActive: boolean;
+};
+
 export default function AdminPage() {
   const [inputSecret, setInputSecret] = useState("");
   const [authed, setAuthed] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [news, setNews] = useState<NewsHeadline | null>(null);
+  const [channels, setChannels] = useState<AdminChannel[]>([]);
+  const [channelLoading, setChannelLoading] = useState(false);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelEmoji, setNewChannelEmoji] = useState("🎵");
+  const [newChannelCountry, setNewChannelCountry] = useState<"UA" | "WORLD">("UA");
+  const [newChannelDescription, setNewChannelDescription] = useState("");
+  const [newChannelPlaylists, setNewChannelPlaylists] = useState("");
+  const [newChannelVideos, setNewChannelVideos] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const secretRef = useRef("");
@@ -65,12 +84,104 @@ export default function AdminPage() {
     setNews(data);
   }, []);
 
+  const loadChannels = useCallback(async () => {
+    setChannelLoading(true);
+    try {
+      const res = await fetch("/api/admin/channels", {
+        headers: headers(),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        setMsg(`❌ Канали: ${d.error || "помилка"}`);
+        return;
+      }
+
+      const data = (await res.json()) as { channels: AdminChannel[] };
+      setChannels(data.channels || []);
+    } finally {
+      setChannelLoading(false);
+    }
+  }, [headers]);
+
   const handleLogin = () => {
     secretRef.current = inputSecret;
     sessionStorage.setItem(SECRET_KEY, inputSecret);
     setAuthed(true);
     loadAnnouncements();
     loadNews();
+    loadChannels();
+  };
+
+  const handleAddChannel = async () => {
+    const name = newChannelName.trim();
+    if (!name) {
+      setMsg("❌ Назва каналу обов'язкова");
+      return;
+    }
+
+    setMsg("⏳ Додаємо канал...");
+    const res = await fetch("/api/admin/channels", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        name,
+        emoji: newChannelEmoji,
+        description: newChannelDescription,
+        country: newChannelCountry,
+        playlistIds: newChannelPlaylists,
+        videoIds: newChannelVideos,
+      }),
+    });
+
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      channel?: AdminChannel;
+    };
+
+    if (!res.ok) {
+      setMsg(`❌ ${data.error || "Не вдалося додати канал"}`);
+      return;
+    }
+
+    setMsg("✅ Канал додано");
+    setNewChannelName("");
+    setNewChannelDescription("");
+    setNewChannelPlaylists("");
+    setNewChannelVideos("");
+    await loadChannels();
+  };
+
+  const handleToggleChannel = async (id: string, isActive: boolean) => {
+    const res = await fetch("/api/admin/channels", {
+      method: "PATCH",
+      headers: headers(),
+      body: JSON.stringify({ id, isActive }),
+    });
+
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      setMsg(`❌ ${d.error || "Не вдалося оновити канал"}`);
+      return;
+    }
+
+    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, isActive } : c)));
+  };
+
+  const handleDeleteChannel = async (id: string) => {
+    const res = await fetch("/api/admin/channels", {
+      method: "PATCH",
+      headers: headers(),
+      body: JSON.stringify({ id, delete: true }),
+    });
+
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      setMsg(`❌ ${d.error || "Не вдалося видалити канал"}`);
+      return;
+    }
+
+    setChannels((prev) => prev.filter((c) => c.id !== id));
+    setMsg("✅ Канал видалено");
   };
 
   const handleStatusChange = async (
@@ -228,6 +339,133 @@ export default function AdminPage() {
           >
             ↺ Оновити
           </button>
+        </div>
+
+        {/* Channel management */}
+        <div
+          className="border border-white/10 bg-white/5 p-4 mb-8"
+          style={{ borderRadius: "10px" }}
+        >
+          <div className="flex items-center justify-between mb-3 gap-3">
+            <p className="text-[11px] tracking-widest uppercase text-[#6d6d6d]">
+              Музичні канали (YouTube / YouTube Music)
+            </p>
+            <button
+              onClick={loadChannels}
+              className="text-[11px] tracking-widest uppercase text-[#6d6d6d] hover:text-white transition"
+            >
+              ↺ Оновити
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+            <input
+              value={newChannelName}
+              onChange={(e) => setNewChannelName(e.target.value)}
+              placeholder="Назва каналу"
+              className="px-3 py-2.5 bg-black/30 border border-white/10 text-white text-[13px]"
+              style={{ borderRadius: "6px" }}
+            />
+            <div className="flex gap-2">
+              <input
+                value={newChannelEmoji}
+                onChange={(e) => setNewChannelEmoji(e.target.value)}
+                placeholder="🎵"
+                className="w-20 px-3 py-2.5 bg-black/30 border border-white/10 text-white text-[13px]"
+                style={{ borderRadius: "6px" }}
+              />
+              <select
+                value={newChannelCountry}
+                onChange={(e) =>
+                  setNewChannelCountry(e.target.value as "UA" | "WORLD")
+                }
+                className="flex-1 px-3 py-2.5 bg-black/30 border border-white/10 text-white text-[13px]"
+                style={{ borderRadius: "6px" }}
+              >
+                <option value="UA">UA</option>
+                <option value="WORLD">WORLD</option>
+              </select>
+            </div>
+            <input
+              value={newChannelDescription}
+              onChange={(e) => setNewChannelDescription(e.target.value)}
+              placeholder="Опис"
+              className="md:col-span-2 px-3 py-2.5 bg-black/30 border border-white/10 text-white text-[13px]"
+              style={{ borderRadius: "6px" }}
+            />
+            <textarea
+              value={newChannelPlaylists}
+              onChange={(e) => setNewChannelPlaylists(e.target.value)}
+              placeholder="Playlist IDs через кому (list=...)"
+              rows={2}
+              className="px-3 py-2.5 bg-black/30 border border-white/10 text-white text-[13px] resize-none"
+              style={{ borderRadius: "6px" }}
+            />
+            <textarea
+              value={newChannelVideos}
+              onChange={(e) => setNewChannelVideos(e.target.value)}
+              placeholder="Video IDs через кому (fallback)"
+              rows={2}
+              className="px-3 py-2.5 bg-black/30 border border-white/10 text-white text-[13px] resize-none"
+              style={{ borderRadius: "6px" }}
+            />
+          </div>
+
+          <button
+            onClick={handleAddChannel}
+            className="w-full py-2.5 border border-white/20 bg-white/10 text-white text-[11px] tracking-widest uppercase hover:bg-white/15 transition"
+            style={{ borderRadius: "75.024px" }}
+          >
+            Додати канал
+          </button>
+
+          <div className="mt-4 space-y-2">
+            {channelLoading && (
+              <p className="text-[#6d6d6d] text-[12px]">Завантаження каналів...</p>
+            )}
+            {!channelLoading && channels.length === 0 && (
+              <p className="text-[#6d6d6d] text-[12px]">Канали не знайдено</p>
+            )}
+
+            {channels.map((c) => (
+              <div
+                key={c.id}
+                className="border border-white/10 bg-black/20 px-3 py-2.5"
+                style={{ borderRadius: "8px" }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-white text-[13px] truncate">
+                      {c.emoji} {c.name} · {c.country}
+                    </p>
+                    <p className="text-[#6d6d6d] text-[11px] truncate">
+                      playlist: {c.playlistIds.length} · videos: {c.videoIds.length}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleChannel(c.id, !c.isActive)}
+                      className={`text-[10px] px-2.5 py-1 border uppercase tracking-widest ${
+                        c.isActive
+                          ? "border-green-700/50 text-green-300"
+                          : "border-white/20 text-[#6d6d6d]"
+                      }`}
+                      style={{ borderRadius: "75.024px" }}
+                    >
+                      {c.isActive ? "Увімкнено" : "Вимкнено"}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteChannel(c.id)}
+                      className="text-[10px] px-2.5 py-1 border border-red-900/40 text-red-400 uppercase tracking-widest"
+                      style={{ borderRadius: "75.024px" }}
+                    >
+                      Видалити
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Pending announcements */}

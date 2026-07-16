@@ -1,10 +1,11 @@
 "use client";
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { CHANNELS, type Channel } from "@/lib/channels";
 
 export type RadioPhase = "idle" | "starting" | "music" | "insert" | "news" | "announcement";
 
 export interface RadioContextValue {
+  channels: Channel[];
   playing: boolean;
   phase: RadioPhase;
   channelId: string;
@@ -33,6 +34,7 @@ export function useRadio() {
 }
 
 export function RadioProvider({ children }: { children: React.ReactNode }) {
+  const [channels, setChannels] = useState<Channel[]>(CHANNELS);
   const [playing, setPlaying] = useState(false);
   const [phase, setPhase] = useState<RadioPhase>("idle");
   const [channelId, setChannelId] = useState(CHANNELS[0].id);
@@ -44,6 +46,32 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   // Refs for callbacks passed into YouTubeRadio — avoids re-init
   const onTrackChange = useRef<(() => void) | null>(null);
   const onReady = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChannels = async () => {
+      try {
+        const res = await fetch("/api/channels", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { channels?: Channel[] };
+        if (!cancelled && Array.isArray(data.channels) && data.channels.length) {
+          const nextChannels = data.channels;
+          setChannels(nextChannels);
+          setChannelId((prev) =>
+            nextChannels.some((c) => c.id === prev) ? prev : nextChannels[0].id,
+          );
+        }
+      } catch {
+        /* keep env channels */
+      }
+    };
+
+    loadChannels();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const start = useCallback(() => {
     setPlaying(true);
@@ -60,15 +88,16 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setChannel = useCallback((id: string) => {
-    const ch = CHANNELS.find((c: Channel) => c.id === id);
+    const ch = channels.find((c: Channel) => c.id === id);
     if (!ch) return;
     setChannelId(id);
-  }, []);
+  }, [channels]);
 
   const setLabel = useCallback((t: string) => setCurrentLabel(t), []);
 
   return (
     <RadioContext.Provider value={{
+      channels,
       playing, phase, channelId, volume, currentLabel,
       ytPlaying, ytVolume,
       start, stop, setChannel, setVolume: (v) => setVolume(v),

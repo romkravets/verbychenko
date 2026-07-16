@@ -1,6 +1,5 @@
 "use client";
 import { useRadio } from "@/app/context/RadioContext";
-import { CHANNELS } from "@/lib/channels";
 
 export default function NowPlayingBadge() {
   const radio = useRadio();
@@ -51,7 +50,7 @@ export default function NowPlayingBadge() {
 
       {/* Channel pills */}
       <div className="border-t border-white/10 px-3 py-2.5 flex gap-1.5 flex-wrap">
-        {CHANNELS.map((ch) => {
+        {radio.channels.map((ch) => {
           const active = radio.channelId === ch.id;
           return (
             <button
