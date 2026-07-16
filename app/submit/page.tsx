@@ -374,8 +374,8 @@ export default function SubmitPage() {
             Напишіть нам листа
           </h1>
           <p className="text-whisper-gray text-[14px]">
-            Тамара зачитає ваш лист в ефірі — щиро і тепло,
-            як це робили на радіо в 90-х.
+            Тамара зачитає ваш лист в ефірі — щиро і тепло, як це робили на
+            радіо в 90-х.
           </p>
         </div>
 
@@ -409,7 +409,8 @@ export default function SubmitPage() {
                 className="border border-white/10 bg-white/3 px-4 py-3 text-[12px] text-whisper-gray font-mono"
                 style={{ borderRadius: "10px" }}
               >
-                📢 Тамара зачитає ваше оголошення в прямому ефірі Радіо Вербиченька. Безкоштовно.
+                📢 Тамара зачитає ваше оголошення в прямому ефірі Радіо
+                Вербиченька. Безкоштовно.
               </div>
 
               <div className="grid grid-cols-2 gap-3">

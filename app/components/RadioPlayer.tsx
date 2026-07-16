@@ -56,29 +56,32 @@ export default function RadioPlayer({
   }, [state]);
 
   // Smoothly change music volume (works for both HTML audio and YouTube)
-  const fadeMusicTo = useCallback((targetVolume: number) => {
-    if (useYouTube) {
-      setYtVolume(targetVolume * 100);
-      return;
-    }
-    const music = musicRef.current;
-    if (!music) return;
-    const startVol = music.volume;
-    const delta = (targetVolume - startVol) / MUSIC_FADE_STEPS;
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      if (!musicRef.current) {
-        clearInterval(interval);
+  const fadeMusicTo = useCallback(
+    (targetVolume: number) => {
+      if (useYouTube) {
+        setYtVolume(targetVolume * 100);
         return;
       }
-      musicRef.current.volume = Math.max(
-        0,
-        Math.min(1, startVol + delta * step),
-      );
-      if (step >= MUSIC_FADE_STEPS) clearInterval(interval);
-    }, MUSIC_FADE_INTERVAL_MS);
-  }, [useYouTube]);
+      const music = musicRef.current;
+      if (!music) return;
+      const startVol = music.volume;
+      const delta = (targetVolume - startVol) / MUSIC_FADE_STEPS;
+      let step = 0;
+      const interval = setInterval(() => {
+        step++;
+        if (!musicRef.current) {
+          clearInterval(interval);
+          return;
+        }
+        musicRef.current.volume = Math.max(
+          0,
+          Math.min(1, startVol + delta * step),
+        );
+        if (step >= MUSIC_FADE_STEPS) clearInterval(interval);
+      }, MUSIC_FADE_INTERVAL_MS);
+    },
+    [useYouTube],
+  );
 
   const playNextAnnouncement = useCallback(async () => {
     if (!episodeId || !isActiveRef.current) return;
@@ -302,8 +305,8 @@ export default function RadioPlayer({
         <span className="text-base mt-0.5">⚠️</span>
         <span>
           Наш ефір <strong>не транслює</strong> музику Росії та Білорусі —
-          країн-агресорів, що розв&#39;язали збройну агресію проти України. Тільки
-          українська та світова музика.
+          країн-агресорів, що розв&#39;язали збройну агресію проти України.
+          Тільки українська та світова музика.
         </span>
       </div>
 

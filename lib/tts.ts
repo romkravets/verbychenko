@@ -11,7 +11,10 @@ const DEFAULT_PROVIDER: TtsProvider =
 const DEFAULT_PROFILE: TtsProfile =
   (process.env.TTS_PROFILE as TtsProfile) || "classic";
 
-const PROFILE_CONFIG: Record<TtsProfile, { voice: string; speakingRate: number; pitch: number }> = {
+const PROFILE_CONFIG: Record<
+  TtsProfile,
+  { voice: string; speakingRate: number; pitch: number }
+> = {
   classic: { voice: "uk-UA-Wavenet-A", speakingRate: 0.85, pitch: 0.0 },
   natural: { voice: "uk-UA-Neural2-A", speakingRate: 0.92, pitch: -0.3 },
   warm: { voice: "uk-UA-Wavenet-A", speakingRate: 0.88, pitch: -1.0 },
@@ -23,7 +26,8 @@ function parseProvider(value: string | undefined): TtsProvider | undefined {
 }
 
 function parseProfile(value: string | undefined): TtsProfile {
-  if (value === "classic" || value === "natural" || value === "warm") return value;
+  if (value === "classic" || value === "natural" || value === "warm")
+    return value;
   return DEFAULT_PROFILE;
 }
 
@@ -41,7 +45,10 @@ function preprocessForSpeech(text: string): string {
     .trim();
 }
 
-async function synthesizeGoogle(text: string, profile: TtsProfile): Promise<Buffer> {
+async function synthesizeGoogle(
+  text: string,
+  profile: TtsProfile,
+): Promise<Buffer> {
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
   if (!apiKey) throw new Error("GOOGLE_TTS_API_KEY not set");
 
@@ -117,7 +124,10 @@ async function synthesizeVoicebox(text: string): Promise<Buffer> {
   return Buffer.from(arr);
 }
 
-export async function textToSpeech(text: string, opts?: TtsOptions): Promise<Buffer> {
+export async function textToSpeech(
+  text: string,
+  opts?: TtsOptions,
+): Promise<Buffer> {
   const processedText = preprocessForSpeech(text);
   const provider = opts?.provider ?? DEFAULT_PROVIDER;
   const profile = parseProfile(opts?.profile);

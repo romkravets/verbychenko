@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (provider && !ALLOWED_PROVIDERS.has(provider)) {
-    return NextResponse.json({ error: "unsupported provider" }, { status: 400 });
+    return NextResponse.json(
+      { error: "unsupported provider" },
+      { status: 400 },
+    );
   }
 
   if (profile && !ALLOWED_PROFILES.has(profile)) {
