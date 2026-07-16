@@ -94,6 +94,8 @@ export default function SchedulePage() {
   // Progress through the current hour (0–100)
   const hourProgress = Math.round((m / 59) * 100);
 
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+
   return (
     <div className="min-h-screen text-white">
       <div className="max-w-[1078px] mx-auto px-6 pt-10 pb-32">
