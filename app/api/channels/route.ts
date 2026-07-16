@@ -18,7 +18,7 @@ export async function GET() {
     }
 
     const channels: Channel[] = rows
-      .map((r) => ({
+      .map<Channel>((r) => ({
         id: r.id,
         name: r.name,
         emoji: r.emoji || "🎵",
