@@ -1,3 +1,4 @@
+import { createConfirmToken } from "@/lib/announce-confirm-token";
 import { db } from "@/lib/db";
 import {
   generateAnnouncement,
@@ -97,7 +98,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ id: announcement.id, aiText });
+    return NextResponse.json({
+      id: announcement.id,
+      aiText,
+      confirmToken: createConfirmToken(announcement.id),
+    });
   }
 
   // ── Dating ─────────────────────────────────────────────────────────────
@@ -169,5 +174,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ id: announcement.id, aiText });
+  return NextResponse.json({
+    id: announcement.id,
+    aiText,
+    confirmToken: createConfirmToken(announcement.id),
+  });
 }

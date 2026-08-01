@@ -66,6 +66,7 @@ export default function SubmitPage() {
     useState<CommercialForm>(initialCommercial);
   const [aiText, setAiText] = useState("");
   const [announcementId, setAnnouncementId] = useState("");
+  const [confirmToken, setConfirmToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sendLoading, setSendLoading] = useState(false);
@@ -136,6 +137,7 @@ export default function SubmitPage() {
     try {
       const res = await fetch(`/api/announce/${announcementId}/confirm`, {
         method: "POST",
+        headers: { "x-confirm-token": confirmToken },
       });
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
@@ -191,11 +193,16 @@ export default function SubmitPage() {
         throw new Error(errMsg);
       }
 
-      const data = (await res.json()) as { aiText?: string; id?: string };
-      if (!data.aiText || !data.id)
+      const data = (await res.json()) as {
+        aiText?: string;
+        id?: string;
+        confirmToken?: string;
+      };
+      if (!data.aiText || !data.id || !data.confirmToken)
         throw new Error("Порожня відповідь від сервера");
       setAiText(data.aiText);
       setAnnouncementId(data.id);
+      setConfirmToken(data.confirmToken);
       setStep("preview");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Щось пішло не так");

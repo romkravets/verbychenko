@@ -1,14 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
+import { verifyConfirmToken } from "@/lib/announce-confirm-token";
 import { db } from "@/lib/db";
-import { textToSpeech, wrapWithHostIntro } from "@/lib/tts";
-import { uploadAudio } from "@/lib/storage";
 import { generateHostLetterIntro } from "@/lib/llm";
+import { getIp, rateLimit } from "@/lib/rate-limit";
+import { uploadAudio } from "@/lib/storage";
+import { textToSpeech, wrapWithHostIntro } from "@/lib/tts";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const confirmToken = _req.headers.get("x-confirm-token");
+
+  if (!verifyConfirmToken(id, confirmToken)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Protect TTS/storage resources from automated retries.
+  const ip = getIp(_req);
+  const rl = rateLimit(`announce-confirm:${ip}`, 3, 10 * 60 * 1000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Забагато запитів. Спробуйте пізніше." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
 
   const announcement = await db.announcement.findUnique({ where: { id } });
   if (!announcement) {
@@ -17,6 +34,12 @@ export async function POST(
   if (!announcement.aiText) {
     return NextResponse.json({ error: "No aiText to render" }, { status: 400 });
   }
+  if (announcement.status !== "PENDING") {
+    return NextResponse.json(
+      { error: "Announcement already processed" },
+      { status: 409 },
+    );
+  }
 
   // Assign letter number if not yet set (count of all announcements up to this one)
   let letterNumber = announcement.letterNumber;
@@ -24,7 +47,10 @@ export async function POST(
     letterNumber = await db.announcement.count();
   }
 
-  const hostIntro = await generateHostLetterIntro(letterNumber, announcement.city);
+  const hostIntro = await generateHostLetterIntro(
+    letterNumber,
+    announcement.city,
+  );
   const fullText = wrapWithHostIntro(announcement.aiText, hostIntro);
 
   try {
